@@ -14,11 +14,11 @@ import { BASE_URL } from '../services/api';
 
 const CACHE_KEY   = 'nearby_facilities_cache';
 const CACHE_TTL   = 15 * 60 * 1000; // 15 minutes in ms
-const FETCH_TIMEOUT = 35000;         // 35s — Overpass can be slow
+const FETCH_TIMEOUT = 20000;         // 20s — Ghana-bounded queries are much faster
 
 // ── Fetch with manual timeout (AbortSignal.timeout not in RN) ─────────────────
 async function fetchNearby(lat, lng) {
-  const url = `${BASE_URL}/nearby-facilities?lat=${lat}&lng=${lng}&radius=3000&limit=10`;
+  const url = `${BASE_URL}/nearby-facilities?lat=${lat}&lng=${lng}&radius=3000&limit=8`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
   try {

@@ -1,7 +1,7 @@
 // services/api.js
 // Backend API integration — FastAPI server
 
-export const BASE_URL = "http://172.20.10.12:8000";
+export const BASE_URL = "https://crescentlike-portless-hailee.ngrok-free.dev";
 
 
 // ─────────────────────────────────────────────
