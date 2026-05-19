@@ -97,6 +97,7 @@ def transcribe(audio_bytes: bytes) -> dict:
             "confidence": 0.0,
             "language": "twi",
             "status": "placeholder",
+            "error": "Twi ASR model is not loaded yet.",
         }
 
     except Exception as e:
@@ -106,4 +107,5 @@ def transcribe(audio_bytes: bytes) -> dict:
             "confidence": 0.0,
             "language": "twi",
             "status": f"error: {str(e)}",
+            "error": str(e),
         }

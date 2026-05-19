@@ -1,80 +1,199 @@
 // services/api.js
-// Backend API integration — calls your FastAPI server
+// Backend API integration — FastAPI server
 
 export const BASE_URL = "http://172.20.10.12:8000";
 
-/**
- * Analyze an emergency situation using the AI backend.
- * @param {string} description - User's description of the emergency
- * @param {string} language - 'en' or 'twi'
- * @returns {object} AI diagnosis result
- */
-export async function analyzeEmergency(description, language = 'en') {
-  console.log('Calling API:', `${BASE_URL}/analyze`, { description, language });
-  
+
+// ─────────────────────────────────────────────
+// STAGE 1 — PROBE EMERGENCY
+// ─────────────────────────────────────────────
+
+export async function probeEmergency(description, language = 'en') {
+  console.log('Calling PROBE API');
+
+  try {
+    const response = await fetch(`${BASE_URL}/probe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        description,
+        language,
+      }),
+    });
+
+    console.log('Probe response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Probe error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    console.log('Probe response:', data);
+
+    return data;
+
+  } catch (error) {
+    console.error('probeEmergency error:', error.message);
+    throw error;
+  }
+}
+
+
+// ─────────────────────────────────────────────
+// STAGE 2 — FINAL DIAGNOSIS
+// ─────────────────────────────────────────────
+
+export async function diagnoseEmergency(
+  description,
+  answers,
+  language = 'en'
+) {
+  console.log('Calling DIAGNOSIS API');
+
+  try {
+    const response = await fetch(`${BASE_URL}/diagnose`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        description,
+        answers,
+        language,
+      }),
+    });
+
+    console.log('Diagnosis response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Diagnosis error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    console.log('Diagnosis response:', data);
+
+    return data;
+
+  } catch (error) {
+    console.error('diagnoseEmergency error:', error.message);
+    throw error;
+  }
+}
+
+
+// ─────────────────────────────────────────────
+// OLD ANALYZE FUNCTION (OPTIONAL)
+// Keep this for backward compatibility
+// ─────────────────────────────────────────────
+
+export async function analyzeEmergency(
+  description,
+  language = 'en'
+) {
+  console.log('Calling API:', `${BASE_URL}/analyze`);
+
   try {
     const response = await fetch(`${BASE_URL}/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description, language }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        description,
+        language,
+      }),
     });
-    
-    console.log('Response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Server error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Response data:', data);
-    return data;
+    return await response.json();
+
   } catch (error) {
-    console.error('Fetch error:', error.message);
+    console.error('analyzeEmergency error:', error.message);
     throw error;
   }
 }
 
-/**
- * Send Twi audio to the ASR backend for transcription.
- * @param {string} audioUri - Local URI of the recorded audio file
- * @returns {string} Transcribed text in Twi
- */
-export async function transcribeTwi(audioUri) {
+
+// ─────────────────────────────────────────────
+// VOICE TRANSCRIPTION
+// ─────────────────────────────────────────────
+
+function getAudioMimeType(uri) {
+  const match = uri.match(/\.([a-zA-Z0-9]+)$/);
+  const ext = match ? match[1].toLowerCase() : 'wav';
+  switch (ext) {
+    case 'm4a': return 'audio/m4a';
+    case 'mp4': return 'audio/mp4';
+    case 'aac': return 'audio/aac';
+    case 'caf': return 'audio/x-caf';
+    default: return 'audio/wav';
+  }
+}
+
+export async function transcribeAudio(audioUri, language = 'en') {
   const formData = new FormData();
+  const mimeType = getAudioMimeType(audioUri);
+  const extension = mimeType.split('/').pop().replace('x-', '');
+
   formData.append('audio', {
     uri: audioUri,
-    type: 'audio/wav',
-    name: 'recording.wav',
+    type: mimeType,
+    name: `recording.${extension}`,
   });
 
-  const response = await fetch(`${BASE_URL}/transcribe-twi`, {
+  const response = await fetch(`${BASE_URL}/transcribe?language=${language}`, {
     method: 'POST',
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(`ASR error: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`ASR error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+
+  if (!data?.transcript?.trim()) {
+    const statusNote = data?.status ? ` (${data.status})` : '';
+    throw new Error(`ASR returned empty transcript${statusNote}`);
+  }
+
   return data.transcript;
 }
 
-/**
- * Get nearby medical facilities based on GPS coordinates.
- * @param {number} latitude
- * @param {number} longitude
- * @returns {Array} List of nearby facilities
- */
+export async function transcribeTwi(audioUri) {
+  return transcribeAudio(audioUri, 'twi');
+}
+
+
+// ─────────────────────────────────────────────
+// NEARBY FACILITIES
+// ─────────────────────────────────────────────
+
 export async function getNearbyFacilities(latitude, longitude) {
-  const response = await fetch(
-    `${BASE_URL}/nearby-facilities?lat=${latitude}&lng=${longitude}`
-  );
+  try {
+    const response = await fetch(
+      `${BASE_URL}/nearby-facilities?lat=${latitude}&lng=${longitude}`
+    );
 
-  if (!response.ok) {
-    throw new Error(`Location service error: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Location service error: ${response.status}`);
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error('getNearbyFacilities error:', error.message);
+    throw error;
   }
-
-  return response.json();
 }

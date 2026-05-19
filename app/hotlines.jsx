@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { colors, spacing, radius, typography } from '../constants/theme';
 
 const HOTLINES = [
   { id: 1, name: 'National Ambulance Service', nameTwi: 'Ayaresabea Kar',         description: 'Emergency medical response',    category: 'Medical',   phone: '193',           availability: '24/7', icon: '🚑', color: '#D32F2F' },
@@ -41,16 +42,17 @@ export default function HotlinesScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
 
-      {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>← </Text>
-        </TouchableOpacity>
-        <Text style={s.headerIcon}>📞 </Text>
-        <Text style={s.headerTitle}>{language === 'twi' ? 'Emergency Hotlines' : 'Emergency Hotlines'}</Text>
-      </View>
+      
+      
+              
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
+        {/* Back button row */}
+              <View style={s.headerRow}>
+                <TouchableOpacity onPress={() => router.back()} style={s.backButton}>
+                  <Text style={s.backButtonText}>← Back</Text>
+                </TouchableOpacity>
+              </View>
 
         {/* Hero */}
         <View style={s.hero}>
@@ -129,11 +131,25 @@ export default function HotlinesScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: { backgroundColor: '#D32F2F', paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  header: { backgroundColor: '#FAFAFA', paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  backButton: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  backButtonText: {
+    fontSize: typography.small,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
   backBtn: { padding: 4 },
-  backBtnText: { fontSize: 20, color: '#FFF', fontWeight: '600' },
+  backBtnText: { fontSize: 20, color: '#1A1A1A', fontWeight: '600' },
   headerIcon: { fontSize: 18 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1A1A1A' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 14, paddingBottom: 40 },
   hero: { backgroundColor: '#D32F2F', borderRadius: 20, padding: 20, shadowColor: '#D32F2F', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },

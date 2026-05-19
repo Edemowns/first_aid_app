@@ -12,6 +12,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadow, typography } from '../constants/theme';
@@ -25,6 +26,7 @@ const SEVERITY_CONFIG = {
 export default function ResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets   = useSafeAreaInsets();
 
   // Parse AI response data
   let rawData = null;

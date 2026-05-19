@@ -3,29 +3,44 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Alert,
+  StyleSheet, ActivityIndicator, Alert, Keyboard, StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { analyzeEmergency } from '../services/api';
+import { probeEmergency, diagnoseEmergency } from '../services/api';
+import ProbingScreen from '../components/ProbingScreen';
+import MediaInput from '../components/MediaInput';
+import { getCurrentLocation } from '../services/location';
+import VoiceInput from '../components/VoiceInput';
+
+
 
 const SCENARIOS = [
-  { label: 'Choking',      labelTwi: 'Ɔhome',    icon: '😮', color: '#D32F2F' },
-  { label: 'Bleeding',     labelTwi: 'Mogya',    icon: '🩸', color: '#D32F2F' },
-  { label: 'Burns',        labelTwi: 'Ogya',     icon: '🔥', color: '#F57C00' },
-  { label: 'Broken Bone',  labelTwi: 'Dompe',    icon: '🦴', color: '#F57C00' },
-  { label: 'Drowning',     labelTwi: 'Nsuo',     icon: '🌊', color: '#1976D2' },
-  { label: 'Seizure',      labelTwi: 'Ahohow',   icon: '⚡', color: '#D32F2F' },
-  { label: 'Heart Attack', labelTwi: 'Akoma',    icon: '❤️', color: '#D32F2F' },
-  { label: 'Snake Bite',   labelTwi: 'Ɔwɔ Ka',   icon: '🐍', color: '#388E3C' },
+  { label: 'Choking',      labelTwi: 'Ɔhome',    icon: '😲', color: '#c7c0c0' },
+  { label: 'Bleeding',     labelTwi: 'Mogya',    icon: '🩸', color: '#c7c0c0' },
+  { label: 'Burns',        labelTwi: 'Ogya',     icon: '🔥', color: '#c7c0c0' },
+  { label: 'Broken Bone',  labelTwi: 'Dompe',    icon: '🦴', color: '#c7c0c0' },
+  { label: 'Drowning',     labelTwi: 'Nsuo',     icon: '🌊', color: '#c7c0c0' },
+  { label: 'Seizure',      labelTwi: 'Ahohow',   icon: '⚡', color: '#c7c0c0' },
+  { label: 'Heart Attack', labelTwi: 'Akoma',    icon: '❤️', color: '#c7c0c0' },
+  { label: 'Snake Bite',   labelTwi: 'Ɔwɔ Ka',   icon: '🐍', color: '#c7c0c0' },
 ];
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  
+
+
   const [inputText, setInputText]   = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [language, setLanguage]     = useState('en');
+  const [image,     setImage]     = useState(null);   // { uri, base64, mediaType }
+  const [loading,   setLoading]   = useState(false);
+  const [stage,     setStage]     = useState('input'); // 'input' | 'probing'
+  const [probeData, setProbeData] = useState(null);    // { questions, summary }
+  const [pressedScenario, setPressedScenario] = useState(null);
 
   useEffect(() => {
     AsyncStorage.getItem('onboarded').then(v => { if (!v) router.replace('/onboarding'); });
@@ -40,46 +55,129 @@ export default function HomeScreen() {
 
   const handleScenario = (s) => setInputText(language === 'twi' ? s.labelTwi : s.label);
 
-  const handleAnalyze = async (override) => {
-    const query = (override || inputText).trim();
-    if (!query) { Alert.alert('Describe the emergency', 'Type or select a scenario first.'); return; }
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeEmergency(query, language);
-      router.push({ pathname: '/results', params: { data: JSON.stringify(result), query, language } });
-    } catch (err) {
-      Alert.alert('Error', err.message || 'Could not reach AI service. Check internet connection.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  // ── Stage 1: send description → get probing questions ───────────────────
+    const handleDescribe = async (overrideText) => {
+      const query = (overrideText || inputText).trim();
+      if (!query) {
+        Alert.alert(
+          language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
+          language === 'twi'
+            ? 'Kyerɛ anaasɛ paw scenario bi'
+            : 'Type what happened or select a scenario above.'
+        );
+        return;
+      }
+
+  setLoading(true);
+      try {
+        const result = await probeEmergency(query, language);
+  
+        if (result.stage === 'probing' && result.questions?.length > 0) {
+          // AI wants to ask follow-up questions — transform format
+          const transformedQuestions = result.questions.map((q, i) => ({
+            id: `q${i + 1}`,
+            text: q,
+            textTwi: q, // TODO: Add translation service if needed
+          }));
+          setProbeData({ 
+            questions: transformedQuestions, 
+            summary: result.summary 
+          });
+          setStage('probing');
+        } else if (result.stage === 'direct') {
+          // AI skipped probing — go straight to results
+          router.push({
+            pathname: '/results',
+            params: { data: JSON.stringify(result), language },
+          });
+        } else {
+          // Fallback — treat as direct result
+          router.push({
+            pathname: '/results',
+            params: { data: JSON.stringify(result), language },
+          });
+        }
+      } catch (err) {
+        Alert.alert(
+          language === 'twi' ? 'Mfomso' : 'Error',
+          err.message || 'Could not reach AI service. Check your connection.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+    const handleProbeSubmit = async (answers) => {
+        setLoading(true);
+        try {
+          const result = await diagnoseEmergency(
+            inputText,
+            answers,
+            language
+          );
+          router.push({
+            pathname: '/results',
+            params: { data: JSON.stringify(result), language },
+          });
+        } catch (err) {
+          Alert.alert(
+            language === 'twi' ? 'Mfomso' : 'Error',
+            err.message || 'Could not reach AI service.'
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
+    
+      const handleBack = () => {
+        setStage('input');
+        setProbeData(null);
+      };
+    
+      // ── Probing stage ────────────────────────────────────────────────────────
+      if (stage === 'probing' && probeData) {
+        return (
+          <SafeAreaView style={s.safe} edges={['top','bottom']}>
+            <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+              <ProbingScreen
+                questions={probeData.questions}
+                summary={probeData.summary}
+                language={language}
+                onSubmit={handleProbeSubmit}
+                onBack={handleBack}
+                loading={loading}
+              />
+            </ScrollView>
+          </SafeAreaView>
+        );
+      }
 
   return (
-    <SafeAreaView style={s.safe} edges={['bottom']}>
+    <SafeAreaView style={s.safe} edges={['top','bottom']}>
 
-      {/* Header */}
-      <View style={s.header}>
-        <View style={s.headerRow}>
-          <Text style={s.headerTitle}>AIDA</Text>
-          <View style={s.headerRight}>
-            <View style={s.flag}>
-              <View style={[s.stripe, { backgroundColor: '#006B3F' }]} />
-              <View style={[s.stripe, { backgroundColor: '#FCD116' }]} />
-              <View style={[s.stripe, { backgroundColor: '#CE1126' }]} />
-            </View>
-            <TouchableOpacity style={s.langBtn} onPress={toggleLanguage}>
-              <Text style={s.langBtnText}>{language === 'en' ? '🌐 EN' : '🌐 TWI'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <Text style={s.headerSub}>Emergency assistance at your fingertips</Text>
-      </View>
+    
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        
 
         {/* Hero */}
         <View style={s.hero}>
-          <View style={s.heroIcon}><Text style={s.heroIconText}>🚨</Text></View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <View style={s.heroIcon}><Text style={s.heroIconText}>🚨</Text></View>
+            <View style={s.headerRight}>
+              <View style={s.flag}>
+                <View style={[s.stripe, { backgroundColor: '#CE1126' }]} />
+                <View style={[s.stripe, { backgroundColor: '#FCD116' }]} />
+                <View style={[s.stripe, { backgroundColor: '#006B3F' }]} />
+                
+                
+              </View>
+              <TouchableOpacity style={s.langBtn} onPress={toggleLanguage}>
+                <Text style={s.langBtnText}>{language === 'en' ? '🌐 EN' : '🌐 TWI'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <Text style={s.heroTitle}>{language === 'twi' ? 'Ayareɛ Mmoa' : 'Emergency First Aid'}</Text>
           <Text style={s.heroSub}>
             {language === 'twi'
@@ -96,9 +194,23 @@ export default function HomeScreen() {
           </View>
           <View style={s.grid}>
             {SCENARIOS.map((sc) => (
-              <TouchableOpacity key={sc.label} style={s.scenarioBtn} onPress={() => handleScenario(sc)} disabled={isAnalyzing} activeOpacity={0.75}>
-                <View style={[s.scenarioIcon, { backgroundColor: sc.color + '18' }]}>
-                  <Text style={{ fontSize: 20 }}>{sc.icon}</Text>
+            <TouchableOpacity
+              key={sc.label}
+              style={[
+                s.scenarioBtn,
+                pressedScenario === sc.label && s.scenarioBtnActive,
+              ]}
+              onPress={() => handleScenario(sc)}
+              onPressIn={() => setPressedScenario(sc.label)}
+              onPressOut={() => setPressedScenario(null)}
+              disabled={isAnalyzing}
+              activeOpacity={0.75}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={language === 'twi' ? `${sc.labelTwi} scenario` : `${sc.label} scenario`}
+            >
+              <View style={[s.scenarioIcon, { backgroundColor: `${sc.color}20` }]}>
+                <Text style={s.scenarioIconText}>{sc.icon}</Text>
                 </View>
                 <Text style={s.scenarioText} numberOfLines={2}>{language === 'twi' ? sc.labelTwi : sc.label}</Text>
               </TouchableOpacity>
@@ -119,11 +231,14 @@ export default function HomeScreen() {
             style={s.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder={language === 'twi' ? 'Kyerɛ deɛ asi ho...' : 'Describe the emergency... e.g. Person is bleeding from the arm'}
+            placeholder={language === 'twi' ? 'Kyerɛ deɛ asi ho...' : 'Describe the emergency                                                                 e.g. Person is bleeding from the arm'}
             placeholderTextColor="#9E9E9E"
             multiline numberOfLines={4}
             textAlignVertical="top"
             editable={!isAnalyzing}
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={() => {}}
           />
           {!!inputText && (
             <TouchableOpacity style={s.clearBtn} onPress={() => setInputText('')}>
@@ -132,27 +247,49 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Action buttons */}
-        <View style={s.actionRow}>
-          <TouchableOpacity style={s.speakBtn} onPress={() => Alert.alert('Phase 3', 'Twi voice input coming soon.')} activeOpacity={0.8}>
-            <Text style={s.speakBtnText}>🎙 {language === 'twi' ? 'Kasa (Twi)' : 'Speak (Twi)'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.analyzeBtn, (!inputText.trim() || isAnalyzing) && s.analyzeBtnOff]}
-            onPress={() => handleAnalyze()}
-            disabled={!inputText.trim() || isAnalyzing}
-            activeOpacity={0.85}
-          >
-            {isAnalyzing
-              ? <><ActivityIndicator size="small" color="#FFF" /><Text style={s.analyzeBtnText}> {language === 'twi' ? 'Hwɛ...' : 'Analyzing...'}</Text></>
-              : <Text style={s.analyzeBtnText}>🔍 {language === 'twi' ? 'Hwɛ & Boa' : 'Analyze & Get Help'}</Text>
-            }
-          </TouchableOpacity>
-        </View>
+        {/* Media input (image + voice) */}
+        <MediaInput
+          language={language}
+          image={image}
+          onImageChange={setImage}
+          onVoiceText={(text) => setInputText(prev => prev + (prev ? ' ' : '') + text)}
+          onVoiceTranscribed={(text) => {
+            const fullText = inputText.trim() ? `${inputText.trim()} ${text}` : text;
+            setInputText(fullText);
+            handleDescribe(fullText);
+          }}
+          disabled={loading}
+        />
+
+        {/* Analyze button */}
+        <TouchableOpacity
+          style={[s.analyzeBtn, (!inputText.trim() || loading) && s.analyzeBtnOff]}
+          onPress={() => handleDescribe()}
+          disabled={!inputText.trim() || loading}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <>
+              <ActivityIndicator size="small" color="#FFF" />
+              <Text style={s.analyzeBtnText}>
+                {language === 'twi' ? '  Hwɛ...' : '  Analysing...'}
+              </Text>
+            </>
+          ) : (
+            <Text style={s.analyzeBtnText}>
+              🔍  {language === 'twi' ? 'Hwɛ & Boa Me' : 'Analyse & Get Help'}
+            </Text>
+          )}
+        </TouchableOpacity>
 
         {/* Hotlines */}
         <TouchableOpacity style={s.hotlinesBtn} onPress={() => router.push('/hotlines')} activeOpacity={0.8}>
           <Text style={s.hotlinesBtnText}>📞 {language === 'twi' ? 'Hwɛ Emergency Hotlines' : 'View Emergency Hotlines'}</Text>
+        </TouchableOpacity>
+
+        {/* Nearby Facilities */}
+        <TouchableOpacity style={s.nearbyBtn} onPress={() => router.push('/nearby')} activeOpacity={0.8}>
+         <Text style={s.nearbyBtnText}>🏥 {language === 'twi' ? 'Hwɛ Yadeɛhaw a Wɔbɛn' : 'Find Nearby Hospitals'}</Text>
         </TouchableOpacity>
 
         {/* Disclaimer */}
@@ -182,13 +319,14 @@ const s = StyleSheet.create({
   heroIcon: { width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   heroIconText: { fontSize: 26 },
   heroTitle: { fontSize: 24, fontWeight: '800', color: '#FFF', marginBottom: 8 },
-  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 },
+  heroSub: { fontSize: 14, fontFamily: 'InterSemiBold', color: 'rgba(255,255,255,0.9)', lineHeight: 20 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A', letterSpacing: 1 },
   sectionLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  scenarioBtn: { width: '22%', minHeight: 88, backgroundColor: '#FFF', borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 8, gap: 6, borderWidth: 1, borderColor: '#E0E0E0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  scenarioIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  scenarioBtn: { width: '22%', minHeight: 84, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', justifyContent: 'center', padding: 8, gap: 6, borderWidth: 1, borderColor: '#E0E0E0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  scenarioBtnActive: { backgroundColor: '#F7F7F7', borderColor: '#BDBDBD' },
+  scenarioIcon: { width: 60, height: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   scenarioText: { fontSize: 10, color: '#1A1A1A', fontWeight: '600', textAlign: 'center', lineHeight: 13 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
@@ -207,4 +345,8 @@ const s = StyleSheet.create({
   hotlinesBtnText: { fontSize: 16, fontWeight: '700', color: '#00796B' },
   disclaimer: { backgroundColor: '#FFF', borderRadius: 14, borderWidth: 1, borderColor: '#E0E0E0', padding: 14 },
   disclaimerText: { fontSize: 12, color: '#555', textAlign: 'center', lineHeight: 18 },
+  nearbyBtn: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  nearbyBtnText: { fontSize: 16, fontWeight: '600', color: '#1A1A1A' },
+  probeNotice:     { backgroundColor: '#E3F2FD', borderRadius: 12, padding: 12, borderLeftWidth: 3, borderLeftColor: '#1565C0' },
+  probeNoticeText: { fontSize: 12, color: '#0D47A1', lineHeight: 18 },
 });

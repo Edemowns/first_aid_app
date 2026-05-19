@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # ── Initialise services ───────────────────────────────────────────────────────
-from services import gemini_service, twi_asr_service
+from services import gemini_service, twi_asr_service, english_asr_service
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_API_KEY:
@@ -39,6 +39,7 @@ else:
     gemini_service.configure(GROQ_API_KEY)
     logger.info("Gemini API configured")
 
+# Load Twi ASR placeholder/model if available. English Whisper is loaded lazily only when needed.
 twi_asr_service.load_model()
 
 # ── Register routes ───────────────────────────────────────────────────────────
@@ -55,7 +56,14 @@ def root():
         "app": "AIDA First Aid API",
         "version": "2.0.0",
         "status": "running",
-        "endpoints": ["POST /analyze", "POST /transcribe-twi", "GET /nearby-facilities", "GET /health"],
+        "endpoints": [
+            "POST /probe",
+            "POST /diagnose",
+            "POST /transcribe",
+            "POST /transcribe-twi",
+            "GET /nearby-facilities",
+            "GET /health"
+        ]
     }
 
 @app.get("/health")
