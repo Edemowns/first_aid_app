@@ -7,41 +7,61 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "aidaapp",
-    "splash": { "backgroundColor": "#D32F2F" },
+    "splash": {
+      "backgroundColor": "#D32F2F"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.aidaapp.firstaid",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "AIDA needs your location to find the nearest hospitals and emergency services.",
-        "NSMicrophoneUsageDescription": "AIDA needs microphone access for Twi voice input.",
+        "NSSpeechRecognitionUsageDescription": "We need access to speech recognition to help you describe emergencies hands-free.",
+        "NSMicrophoneUsageDescription": "We need access to your microphone to capture voice descriptions of emergencies.",
         "NSCameraUsageDescription": "AIDA needs camera access to photograph injuries for AI analysis.",
         "NSPhotoLibraryUsageDescription": "AIDA needs photo library access to attach injury images."
       }
     },
     "android": {
-      "adaptiveIcon": { "backgroundColor": "#D32F2F" },
+      "adaptiveIcon": {
+        "backgroundColor": "#D32F2F"
+      },
       "package": "com.aidaapp.firstaid",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SPEECH_RECOGNITION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE"
       ]
     },
     "plugins": [
       "expo-router",
-      ["expo-location", {
-        "locationAlwaysAndWhenInUsePermission": "AIDA needs your location to find nearby hospitals."
-      }],
-      ["expo-av", {
-        "microphonePermission": "AIDA needs microphone access for Twi voice input."
-      }],
-      ["expo-image-picker", {
-        "photosPermission": "AIDA needs photo access to attach injury images for AI analysis.",
-        "cameraPermission": "AIDA needs camera access to photograph injuries."
-      }]
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "AIDA needs your location to find nearby hospitals."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "AIDA needs microphone access for Twi voice input."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AIDA needs photo access to attach injury images for AI analysis.",
+          "cameraPermission": "AIDA needs camera access to photograph injuries."
+        }
+      ],
+      "expo-speech-recognition",
+      "expo-audio",
+      "expo-video"
     ],
-    "experiments": { "typedRoutes": false }
+    "experiments": {
+      "typedRoutes": false
+    }
   }
 }

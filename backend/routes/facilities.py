@@ -31,12 +31,54 @@ OVERPASS_MIRRORS = [
 ]
 
 STATIC_FACILITIES = [
-    {"name": "Korle-Bu Teaching Hospital",    "phone": "0302-665-401", "address": "Guggisberg Ave, Accra",   "lat": 5.5381, "lng": -0.2290},
-    {"name": "37 Military Hospital",           "phone": "0302-776-111", "address": "Liberation Rd, Accra",    "lat": 5.5769, "lng": -0.1969},
-    {"name": "Ridge Hospital",                 "phone": "0302-663-185", "address": "Castle Rd, Accra",        "lat": 5.5598, "lng": -0.2020},
-    {"name": "Komfo Anokye Teaching Hospital", "phone": "0322-022-301", "address": "Bantama, Kumasi",         "lat": 6.6885, "lng": -1.6244},
-    {"name": "Tamale Teaching Hospital",       "phone": "0372-022-430", "address": "Tamale, Northern Region", "lat": 9.4008, "lng": -0.8393},
-    {"name": "Cape Coast Teaching Hospital",   "phone": "0332-132-542", "address": "Cape Coast, Central",     "lat": 5.1037, "lng": -1.2827},
+    # --- ACCRA REGION ---
+    {"name": "Korle-Bu Teaching Hospital", "phone": "0302-665-401", "address": "Guggisberg Ave, Accra", "lat": 5.5381, "lng": -0.2290},
+    {"name": "37 Military Hospital", "phone": "0302-776-111", "address": "Liberation Rd, Accra", "lat": 5.5769, "lng": -0.1969},
+    {"name": "Ridge Hospital (Greater Accra Regional)", "phone": "0302-663-185", "address": "Castle Rd, Accra", "lat": 5.5598, "lng": -0.2020},
+    {"name": "Nyaho Medical Centre", "phone": "0302-737-300", "address": "35 Kofi Annan St, Airport Residential Area, Accra", "lat": 5.6015, "lng": -0.1832},
+    {"name": "Ghana Police Hospital", "phone": "0302-773-158", "address": "Cantonments Road, Accra", "lat": 5.5684, "lng": -0.1873},
+    {"name": "The Trust Hospital", "phone": "0302-761-974", "address": "Oxford Street, Osu, Accra", "lat": 5.5585, "lng": -0.1812},
+    {"name": "Lister Hospital & Fertility Centre", "phone": "0302-812-325", "address": "Airport Hills, Accra", "lat": 5.6184, "lng": -0.1458},
+    {"name": "La General Hospital", "phone": "0302-776-324", "address": "La Road, Accra", "lat": 5.5631, "lng": -0.1582},
+    {"name": "Achimota Hospital", "phone": "0302-401-447", "address": "Achimota, Accra", "lat": 5.6231, "lng": -0.2312},
+    {"name": "University Hospital (Legon)", "phone": "0302-501-512", "address": "University of Ghana campus, Legon, Accra", "lat": 5.6515, "lng": -0.1870},
+    {"name": "Tema General Hospital", "phone": "0202-012-680", "address": "Hospital Road, Tema", "lat": 5.6698, "lng": -0.0166},
+    {"name": "Kaneshie Cocoa Clinic", "phone": "0302-228-111", "address": "Kaneshie, Accra", "lat": 5.5781, "lng": -0.2389},
+    
+    # --- KUMASI REGION ---
+    {"name": "Komfo Anokye Teaching Hospital", "phone": "0322-022-301", "address": "Bantama, Kumasi", "lat": 6.6885, "lng": -1.6244},
+    {"name": "Kumasi South Hospital (Agogo)", "phone": "0322-092-232", "address": "Agogo, Kumasi", "lat": 6.6542, "lng": -1.5982},
+    {"name": "Manhyia District Hospital", "phone": "0322-023-382", "address": "Manhyia, Kumasi", "lat": 6.7032, "lng": -1.6112},
+    {"name": "Suntreso Government Hospital", "phone": "0322-024-411", "address": "Suntreso, Kumasi", "lat": 6.6912, "lng": -1.6421},
+    {"name": "Tafo Government Hospital", "phone": "0322-022-812", "address": "Tafo, Kumasi", "lat": 6.7312, "lng": -1.6031},
+    {"name": "KNUST Hospital", "phone": "0322-060-293", "address": "KNUST Campus, Kumasi", "lat": 6.6781, "lng": -1.5712},
+    
+    # --- TAMALE REGION ---
+    {"name": "Tamale Teaching Hospital", "phone": "0372-022-430", "address": "Tamale, Northern Region", "lat": 9.4008, "lng": -0.8393},
+    {"name": "Tamale West Hospital", "phone": "0372-023-145", "address": "Tamale West, Northern Region", "lat": 9.4032, "lng": -0.8652},
+    {"name": "Tamale Adventist Hospital", "phone": "0372-022-811", "address": "Tamale, Northern Region", "lat": 9.4182, "lng": -0.8412},
+    
+    # --- CAPE COAST REGION ---
+    {"name": "Cape Coast Teaching Hospital", "phone": "0332-132-542", "address": "Cape Coast, Central", "lat": 5.1037, "lng": -1.2827},
+    {"name": "Cape Coast Metropolitan Hospital", "phone": "0332-132-111", "address": "Cape Coast, Central Region", "lat": 5.1112, "lng": -1.2482},
+    {"name": "University of Cape Coast Hospital", "phone": "0332-132-441", "address": "UCC Campus, Cape Coast", "lat": 5.1184, "lng": -1.2852},
+    
+    # --- TAKORADI REGION ---
+    {"name": "Effia Nkwanta Regional Hospital", "phone": "0312-022-543", "address": "Sekondi-Takoradi, Western Region", "lat": 4.8954, "lng": -1.7552},
+    {"name": "Takoradi Government Hospital", "phone": "0312-023-111", "address": "Takoradi, Western Region", "lat": 4.8872, "lng": -1.7712},
+    {"name": "GPHA Hospital", "phone": "0312-022-811", "address": "Harbour Road, Takoradi", "lat": 4.8912, "lng": -1.7612},
+    
+    # --- KOFORIDUA REGION ---
+    {"name": "Eastern Regional Hospital (Koforidua)", "phone": "0342-022-381", "address": "Hospital Road, Koforidua", "lat": 6.0886, "lng": -0.2613},
+    {"name": "St. Joseph's Hospital", "phone": "0342-022-112", "address": "Koforidua, Eastern Region", "lat": 6.1032, "lng": -0.2812},
+    
+    # --- VOLTA & OTHER REGIONS ---
+    {"name": "Ho Teaching Hospital", "phone": "0362-028-111", "address": "Ho, Volta Region", "lat": 6.6112, "lng": 0.4712},
+    {"name": "Volta Regional Hospital", "phone": "0362-022-441", "address": "Ho, Volta Region", "lat": 6.6212, "lng": 0.4812},
+    {"name": "Sunyani Regional Hospital", "phone": "0352-027-381", "address": "Sunyani, Bono Region", "lat": 7.3312, "lng": -2.3112},
+    {"name": "Sunyani Municipal Hospital", "phone": "0352-022-111", "address": "Sunyani, Bono Region", "lat": 7.3412, "lng": -2.3212},
+    {"name": "Bolgatanga Regional Hospital", "phone": "0382-022-211", "address": "Bolgatanga, Upper East Region", "lat": 10.7854, "lng": -0.8512},
+    {"name": "Upper West Regional Hospital (Wa)", "phone": "0392-022-112", "address": "Wa, Upper West Region", "lat": 10.0612, "lng": -2.5012}
 ]
 
 
@@ -205,7 +247,8 @@ async def _query_overpass(query: str) -> list:
     last_error = None
     for mirror in OVERPASS_MIRRORS:
         try:
-            async with httpx.AsyncClient(timeout=25) as client:
+            # Low timeout (2.8s) for emergency speed; immediately falls back to high-quality preloaded database
+            async with httpx.AsyncClient(timeout=2.8) as client:
                 resp = await client.post(
                     mirror,
                     data={"data": query},

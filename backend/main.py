@@ -5,9 +5,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from fastapi import HTTPException
 import os
 import time
 import logging
+
+
+
+
 
 # Load .env file (GROQ_API_KEY etc.)
 load_dotenv()
@@ -74,4 +81,36 @@ def health():
         "timestamp": int(time.time()),
     }
 
+
+# Define the request model
+class FollowUpRequest(BaseModel):
+    description: Optional[str] = ""
+    answers: List[Dict[str, Any]]
+    previous_diagnosis: Dict[str, Any]
+    follow_up_message: str
+    language: str = "en"
+    image_base64: Optional[str] = None
+    media_type: Optional[str] = "image/jpeg"
+
+# Register the route directly in main.py
+@app.post("/follow-up")
+async def follow_up_emergency(request: FollowUpRequest):
+    try:
+        logger.info("FOLLOW-UP REQUEST RECEIVED")
+        
+        # Call your existing service logic
+        result = await gemini_service.follow_up(
+            text=request.description or "",
+            answers=request.answers,
+            previous_diagnosis=request.previous_diagnosis,
+            follow_up_message=request.follow_up_message,
+            language=request.language,
+            image=request.image_base64,
+            media_type=request.media_type,
+        )
+        return result
+        
+    except Exception as e:
+        logger.exception("Follow-up route error")
+        raise HTTPException(status_code=500, detail=f"Follow-up error: {str(e)}")
 # Run: uvicorn main:app --reload --host 0.0.0.0 --port 8000

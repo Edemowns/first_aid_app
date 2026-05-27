@@ -8,30 +8,90 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { probeEmergency, diagnoseEmergency } from '../services/api';
+import { probeEmergency, diagnoseEmergency, getNearbyFacilities } from '../services/api';
 import ProbingScreen from '../components/ProbingScreen';
 import MediaInput from '../components/MediaInput';
 import { getCurrentLocation } from '../services/location';
 import VoiceInput from '../components/VoiceInput';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { findOfflineFirstAid } from '../constants/firstaid';
 
-
+let useSpeechRecognition;
+try {
+  const SpeechModule = require('expo-speech-recognition');
+  useSpeechRecognition = SpeechModule.useSpeechRecognition || (() => ({
+    isRecognitionAvailable: false,
+    start: async () => {},
+    stop: async () => {},
+    transcript: '',
+    reset: () => {},
+  }));
+} catch (err) {
+  useSpeechRecognition = () => ({
+    isRecognitionAvailable: false,
+    start: async () => {},
+    stop: async () => {},
+    transcript: '',
+    reset: () => {},
+  });
+}
 
 const SCENARIOS = [
-  { label: 'Choking',      labelTwi: 'Ɔhome',    icon: '😲', color: '#c7c0c0' },
-  { label: 'Bleeding',     labelTwi: 'Mogya',    icon: '🩸', color: '#c7c0c0' },
-  { label: 'Burns',        labelTwi: 'Ogya',     icon: '🔥', color: '#c7c0c0' },
-  { label: 'Broken Bone',  labelTwi: 'Dompe',    icon: '🦴', color: '#c7c0c0' },
-  { label: 'Drowning',     labelTwi: 'Nsuo',     icon: '🌊', color: '#c7c0c0' },
-  { label: 'Seizure',      labelTwi: 'Ahohow',   icon: '⚡', color: '#c7c0c0' },
-  { label: 'Heart Attack', labelTwi: 'Akoma',    icon: '❤️', color: '#c7c0c0' },
-  { label: 'Snake Bite',   labelTwi: 'Ɔwɔ Ka',   icon: '🐍', color: '#c7c0c0' },
+  
+  {
+    label: 'Drowning',
+    labelTwi: 'Nsuo',
+    icon: 'swim', // swimmer drowning context
+    color: '#0284C7',
+  },
+  {
+    label: 'Bleeding',
+    labelTwi: 'Mogya',
+    icon: 'water-alert', // fluid loss / emergency fluid
+    color: '#DC2626',
+  },
+  {
+    label: 'Burns',
+    labelTwi: 'Ogya',
+    icon: 'fire', // strong burn representation
+    color: '#EA580C',
+  },
+  {
+    label: 'Broken Bone',
+    labelTwi: 'Dompe',
+    icon: 'bone', // very accurate medical icon
+    color: '#6B7280',
+  },
+  
+  {
+    label: 'Choking',
+    labelTwi: 'Ɔhome',
+    icon: 'lungs', // airway obstruction gesture
+    color: '#F59E0B',
+  },
+  {
+    label: 'Seizure',
+    labelTwi: 'Ahohow',
+    icon: 'brain', // neurological symbol
+    color: '#7C3AED',
+  },
+  {
+    label: 'Heart Attack',
+    labelTwi: 'Akoma',
+    icon: 'heart-pulse', // ECG heart icon
+    color: '#E11D48',
+  },
+  {
+    label: 'Snake Bite',
+    labelTwi: 'Ɔwɔ Ka',
+    icon: 'snake', // very clear emergency symbol
+    color: '#059669',
+  },
 ];
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-
 
   const [inputText, setInputText]   = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -41,10 +101,45 @@ export default function HomeScreen() {
   const [stage,     setStage]     = useState('input'); // 'input' | 'probing'
   const [probeData, setProbeData] = useState(null);    // { questions, summary }
   const [pressedScenario, setPressedScenario] = useState(null);
+  const { isRecognitionAvailable, start, stop, transcript, reset } = useSpeechRecognition();
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('onboarded').then(v => { if (!v) router.replace('/onboarding'); });
     AsyncStorage.getItem('language').then(l => { if (l) setLanguage(l); });
+  }, []);
+
+  useEffect(() => {
+    // Recommendation 4 & Eager Loading: Background pre-fetching of nearby hospitals
+    const prefetchNearbyHospitals = async () => {
+      try {
+        console.log('[Background Prefetch] Starting location prefetch...');
+        const loc = await getCurrentLocation();
+        if (!loc) {
+          console.log('[Background Prefetch] Location not available for prefetch');
+          return;
+        }
+        
+        console.log('[Background Prefetch] Fetching nearby facilities in background...');
+        const data = await getNearbyFacilities(loc.latitude, loc.longitude);
+        if (data && data.facilities) {
+          // Save in identical format as nearby.jsx cache
+          await AsyncStorage.setItem('nearby_facilities_cache', JSON.stringify({
+            data,
+            lat: loc.latitude,
+            lng: loc.longitude,
+            timestamp: Date.now(),
+          }));
+          console.log('[Background Prefetch] Successfully pre-cached nearby hospitals.');
+        }
+      } catch (err) {
+        console.log('[Background Prefetch] Silent error during prefetch:', err.message);
+      }
+    };
+
+    // Run 1.5 seconds after home screen mounts to ensure completely smooth initial UI render
+    const timer = setTimeout(prefetchNearbyHospitals, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const toggleLanguage = async () => {
@@ -55,57 +150,148 @@ export default function HomeScreen() {
 
   const handleScenario = (s) => setInputText(language === 'twi' ? s.labelTwi : s.label);
 
+  const toggleVoiceRecording = async () => {
+    if (isRecording) {
+      await stop();
+      setIsRecording(false);
+      // After stopping, if we have a transcript, trigger analysis
+      if (transcript) {
+        const fullText = inputText.trim() ? `${inputText.trim()} ${transcript}` : transcript;
+        setInputText(fullText);
+        handleDescribe(fullText);
+      }
+    } else {
+      reset(); // Clear old transcripts
+      await start({ lang: 'en-US' }); // Or 'tw-GH' if supported
+      setIsRecording(true);
+    }
+  };
+
   // ── Stage 1: send description → get probing questions ───────────────────
     const handleDescribe = async (overrideText) => {
-      const query = (overrideText || inputText).trim();
-      if (!query) {
-        Alert.alert(
-          language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
-          language === 'twi'
-            ? 'Kyerɛ anaasɛ paw scenario bi'
-            : 'Type what happened or select a scenario above.'
-        );
-        return;
-      }
+  const query = (overrideText || inputText).trim();
+
+  // ✅ Allow either text OR image
+  const hasText = query.length > 0;
+  const hasImage = !!image?.base64;
+
+  // ❌ Neither text nor image provided
+  if (!hasText && !hasImage) {
+    Alert.alert(
+      language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
+      language === 'twi'
+        ? 'Kyerɛ asɛm no anaa fa foto ka ho.'
+        : 'Type what happened or upload a photo.'
+    );
+    return;
+  }
 
   setLoading(true);
-      try {
-        const result = await probeEmergency(query, language);
-  
-        if (result.stage === 'probing' && result.questions?.length > 0) {
-          // AI wants to ask follow-up questions — transform format
-          const transformedQuestions = result.questions.map((q, i) => ({
-            id: `q${i + 1}`,
-            text: q,
-            textTwi: q, // TODO: Add translation service if needed
-          }));
-          setProbeData({ 
-            questions: transformedQuestions, 
-            summary: result.summary 
-          });
-          setStage('probing');
-        } else if (result.stage === 'direct') {
-          // AI skipped probing — go straight to results
-          router.push({
-            pathname: '/results',
-            params: { data: JSON.stringify(result), language },
-          });
-        } else {
-          // Fallback — treat as direct result
-          router.push({
-            pathname: '/results',
-            params: { data: JSON.stringify(result), language },
-          });
-        }
-      } catch (err) {
-        Alert.alert(
-          language === 'twi' ? 'Mfomso' : 'Error',
-          err.message || 'Could not reach AI service. Check your connection.'
-        );
-      } finally {
-        setLoading(false);
-      }
+
+  try {
+
+    // ✅ Send text + image to backend
+    const result = await probeEmergency(
+      hasText ? query : '',
+      language,
+      image?.base64 || null,
+      image?.mediaType || 'image/jpeg'
+    );
+
+    // ✅ AI wants follow-up probing questions
+    if (result.stage === 'probing' && result.questions?.length > 0) {
+
+      const transformedQuestions = result.questions.map((q, i) => ({
+        id: q.id || `q${i + 1}`,
+        text: q.question,
+        type: q.type || 'single_choice',
+        options: q.options || [],
+      }));
+
+      setProbeData({
+        questions: transformedQuestions,
+        summary: result.summary,
+      });
+
+      setStage('probing');
+
+    } else {
+
+      // ✅ Direct diagnosis / result
+      router.push({
+        pathname: '/results',
+        params: {
+          data: JSON.stringify(result),
+          language,
+        },
+      });
+
+    }
+
+  } catch (err) {
+
+    console.error('handleDescribe error (falling back offline):', err);
+    
+    // Attempt local offline matching for Recommendations 1 & 2
+    const offlineGuide = findOfflineFirstAid(query);
+    const formattedResult = offlineGuide ? {
+      condition: offlineGuide.condition,
+      severity: offlineGuide.severity,
+      steps: language === 'twi' ? offlineGuide.steps.twi : offlineGuide.steps.en,
+      warnings: language === 'twi' ? offlineGuide.warnings.twi : offlineGuide.warnings.en,
+      call_immediately: offlineGuide.call_immediately,
+      is_offline: true,
+    } : {
+      condition: language === 'twi' ? 'Asiane Titiriw (Offline)' : 'General Emergency (Offline)',
+      severity: 'critical',
+      steps: language === 'twi' ? [
+        'Frɛ ayaresabea anaa ambulance so ntɛm ara (193).',
+        'Ma onipa no nyɛ komm na ɔda fam mmerɛw.',
+        'Hwɛ sɛ ɔrehome anaa ɔnnhome.',
+        'Sɛ ɔrehome a, dan no to ne nfe mu.'
+      ] : [
+        'Call emergency services immediately (193).',
+        'Keep the injured person completely still and calm.',
+        'Monitor their breathing and consciousness closely.',
+        'If breathing but unresponsive, place them in the recovery position (on their side).'
+      ],
+      warnings: language === 'twi' ? [
+        'Mnsoso onipa no gye sɛ asiane foforo bɛto no.'
+      ] : [
+        'Do not move the person unless they are in immediate danger.'
+      ],
+      call_immediately: true,
+      is_offline: true,
     };
+
+    Alert.alert(
+      language === 'twi' ? 'Wunni Internet (Offline)' : 'Offline Mode Active',
+      language === 'twi' 
+        ? 'Wunni internet mprempren. Yɛrekyerɛ wo mmoa nhyehyɛeɛ a yɛakora wɔ app yi mu.' 
+        : 'You are currently offline. Showing preloaded first-aid guidance from local database.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.push({
+              pathname: '/results',
+              params: {
+                data: JSON.stringify(formattedResult),
+                language,
+                originalText: query,
+              },
+            });
+          }
+        }
+      ]
+    );
+
+  } finally {
+
+    setLoading(false);
+
+  }
+};
 
 
     const handleProbeSubmit = async (answers) => {
@@ -204,14 +390,12 @@ export default function HomeScreen() {
               onPressIn={() => setPressedScenario(sc.label)}
               onPressOut={() => setPressedScenario(null)}
               disabled={isAnalyzing}
-              activeOpacity={0.75}
+              activeOpacity={0.85}
               accessible={true}
               accessibilityRole="button"
               accessibilityLabel={language === 'twi' ? `${sc.labelTwi} scenario` : `${sc.label} scenario`}
             >
-              <View style={[s.scenarioIcon, { backgroundColor: `${sc.color}20` }]}>
-                <Text style={s.scenarioIconText}>{sc.icon}</Text>
-                </View>
+              <View style={[s.scenarioIcon, { backgroundColor: `${sc.color}20` }]}><MaterialCommunityIcons name={sc.icon} size={26} color={sc.color}/></View>
                 <Text style={s.scenarioText} numberOfLines={2}>{language === 'twi' ? sc.labelTwi : sc.label}</Text>
               </TouchableOpacity>
             ))}
@@ -231,7 +415,7 @@ export default function HomeScreen() {
             style={s.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder={language === 'twi' ? 'Kyerɛ deɛ asi ho...' : 'Describe the emergency                                                                 e.g. Person is bleeding from the arm'}
+            placeholder={language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency                                                                 e.g. Person is bleeding from the arm'}
             placeholderTextColor="#9E9E9E"
             multiline numberOfLines={4}
             textAlignVertical="top"
@@ -247,12 +431,22 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Media input (image + voice) */}
         <MediaInput
           language={language}
           image={image}
           onImageChange={setImage}
-          onVoiceText={(text) => setInputText(prev => prev + (prev ? ' ' : '') + text)}
+          // Pass the speech tools as props
+          speechTools={{
+            isRecording,
+            startRecording: () => { reset(); start({ lang: 'en-US' }); setIsRecording(true); },
+            stopRecording: async () => { 
+                await stop(); 
+                setIsRecording(false); 
+                // Logic to process the transcript after stop
+                if (transcript) handleDescribe(transcript);
+            },
+            transcript
+          }}
           onVoiceTranscribed={(text) => {
             const fullText = inputText.trim() ? `${inputText.trim()} ${text}` : text;
             setInputText(fullText);
@@ -263,25 +457,25 @@ export default function HomeScreen() {
 
         {/* Analyze button */}
         <TouchableOpacity
-          style={[s.analyzeBtn, (!inputText.trim() || loading) && s.analyzeBtnOff]}
+          style={[s.analyzeBtn, (!inputText.trim() && !image) || loading && s.analyzeBtnOff]}
           onPress={() => handleDescribe()}
-          disabled={!inputText.trim() || loading}
+          disabled={(!inputText.trim() && !image) || loading}
           activeOpacity={0.85}
         >
           {loading ? (
-            <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <ActivityIndicator size="small" color="#FFF" />
               <Text style={s.analyzeBtnText}>
-                {language === 'twi' ? '  Hwɛ...' : '  Analysing...'}
+                {language === 'twi' ? 'Hwɛ...' : 'Analysing...'}
               </Text>
-            </>
+            </View>
           ) : (
             <Text style={s.analyzeBtnText}>
-              🔍  {language === 'twi' ? 'Hwɛ & Boa Me' : 'Analyse & Get Help'}
+              {language === 'twi' ? '🔍 Hwɛ & Boa Me' : '🔍 Analyse & Get Help'}
             </Text>
           )}
         </TouchableOpacity>
-
+        
         {/* Hotlines */}
         <TouchableOpacity style={s.hotlinesBtn} onPress={() => router.push('/hotlines')} activeOpacity={0.8}>
           <Text style={s.hotlinesBtnText}>📞 {language === 'twi' ? 'Hwɛ Emergency Hotlines' : 'View Emergency Hotlines'}</Text>
@@ -324,15 +518,15 @@ const s = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A', letterSpacing: 1 },
   sectionLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  scenarioBtn: { width: '22%', minHeight: 84, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', justifyContent: 'center', padding: 8, gap: 6, borderWidth: 1, borderColor: '#E0E0E0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  scenarioBtnActive: { backgroundColor: '#F7F7F7', borderColor: '#BDBDBD' },
-  scenarioIcon: { width: 60, height: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  scenarioText: { fontSize: 10, color: '#1A1A1A', fontWeight: '600', textAlign: 'center', lineHeight: 13 },
+  scenarioBtn: { width: '22%', minHeight: 84, backgroundColor: '#FFF', borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6, gap: 6, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3, transform: [{ scale: 1 }], },
+  scenarioBtnActive: { backgroundColor: '#F9FAFB', borderColor: '#D1D5DB' },
+  scenarioIcon: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8, backgroundColor: '#F3F4F6' },
+  scenarioText: { fontSize: 11, color: '#111827', fontWeight: '600', textAlign: 'center', lineHeight: 13 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
   dividerText: { fontSize: 12, color: '#9E9E9E', fontWeight: '500' },
   inputBox: { position: 'relative' },
-  input: { backgroundColor: '#FFF', borderRadius: 14, borderWidth: 2, borderColor: '#E0E0E0', padding: 14, paddingRight: 40, fontSize: 16, color: '#1A1A1A', minHeight: 120 },
+  input: { backgroundColor: '#FFF', borderRadius: 14, borderWidth: 2, borderColor: '#E0E0E0', padding: 14, paddingRight: 40, fontSize: 16, color: '#1A1A1A', minHeight: 100 },
   clearBtn: { position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(158,158,158,0.15)', alignItems: 'center', justifyContent: 'center' },
   clearBtnText: { fontSize: 13, color: '#9E9E9E' },
   actionRow: { flexDirection: 'row', gap: 10 },

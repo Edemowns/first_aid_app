@@ -16,6 +16,49 @@ const CACHE_KEY   = 'nearby_facilities_cache';
 const CACHE_TTL   = 15 * 60 * 1000; // 15 minutes in ms
 const FETCH_TIMEOUT = 20000;         // 20s — Ghana-bounded queries are much faster
 
+const FALLBACK_HOSPITALS = [
+  {
+    name: 'Korle-Bu Teaching Hospital',
+    type: 'Hospital',
+    distance_km: 4.2,
+    address: 'Guggisberg Avenue, Accra',
+    phone: '0302-674-191',
+    maps_url: 'https://maps.google.com/?q=Korle-Bu+Teaching+Hospital'
+  },
+  {
+    name: '37 Military Hospital',
+    type: 'Hospital',
+    distance_km: 6.5,
+    address: 'Neghelli Barracks, Accra',
+    phone: '0302-776-111',
+    maps_url: 'https://maps.google.com/?q=37+Military+Hospital'
+  },
+  {
+    name: 'Greater Accra Regional Hospital (Ridge)',
+    type: 'Hospital',
+    distance_km: 3.1,
+    address: 'Castle Road, Ridge, Accra',
+    phone: '0302-228-382',
+    maps_url: 'https://maps.google.com/?q=Greater+Accra+Regional+Hospital'
+  },
+  {
+    name: 'Komfo Anokye Teaching Hospital',
+    type: 'Hospital',
+    distance_km: 250.0,
+    address: 'Bantama Rd, Kumasi',
+    phone: '0322-022-381',
+    maps_url: 'https://maps.google.com/?q=Komfo+Anokye+Teaching+Hospital'
+  },
+  {
+    name: 'Tamale Teaching Hospital',
+    type: 'Hospital',
+    distance_km: 610.0,
+    address: 'Hospital Road, Tamale',
+    phone: '0372-022-211',
+    maps_url: 'https://maps.google.com/?q=Tamale+Teaching+Hospital'
+  }
+];
+
 // ── Fetch with manual timeout (AbortSignal.timeout not in RN) ─────────────────
 async function fetchNearby(lat, lng) {
   const url = `${BASE_URL}/nearby-facilities?lat=${lat}&lng=${lng}&radius=3000&limit=8`;
@@ -141,6 +184,26 @@ function FacilityCard({ facility, language, rank }) {
   );
 }
 
+// ── Skeleton Placeholder Card for Lazy Loading ───────────────────────────────
+function SkeletonCard() {
+  return (
+    <View style={[s.card, { opacity: 0.55 }]}>
+      <View style={s.cardTop}>
+        <View style={[s.rankBox, { backgroundColor: '#E0E0E0' }]} />
+        <View style={[s.badge, { backgroundColor: '#ECEFF1', width: 65, height: 18 }]} />
+        <View style={[s.badge, { backgroundColor: '#ECEFF1', width: 85, height: 18 }]} />
+      </View>
+      <View style={{ backgroundColor: '#ECEFF1', height: 18, width: '75%', borderRadius: 6, marginTop: 4 }} />
+      <View style={{ backgroundColor: '#ECEFF1', height: 13, width: '55%', borderRadius: 4, marginTop: 4 }} />
+      <View style={{ backgroundColor: '#ECEFF1', height: 13, width: '45%', borderRadius: 4, marginTop: 4 }} />
+      <View style={s.cardActions}>
+        <View style={[s.callBtn, { backgroundColor: '#ECEFF1', shadowOpacity: 0 }]} />
+        <View style={[s.dirBtn, { borderColor: '#E0E0E0' }]} />
+      </View>
+    </View>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function NearbyScreen() {
   const router = useRouter();
@@ -163,47 +226,48 @@ export default function NearbyScreen() {
     }
 
     try {
-      // 1. Get GPS (required)
+      // 1. Check cache FIRST (enables 0ms instant loading if within TTL)
+      if (!forceRefresh) {
+        const cached = await loadCache();
+        if (cached) {
+          setFacilities(cached.data.facilities || []);
+          setMeta(cached.data);
+          setCacheAge(cached.ageMs);
+          
+          // Eagerly set coordinates and address from cache to skip slow hardware GPS locks
+          setCoords({ latitude: cached.lat, longitude: cached.lng });
+          getAddressFromCoords(cached.lat, cached.lng).then(setAddress);
+          
+          setStatus('done');
+          setRefreshing(false);
+
+          // Silently refresh in background if cache is older than 5 min
+          if (cached.ageMs > 5 * 60 * 1000) {
+            setBgFetching(true);
+            fetchNearby(cached.lat, cached.lng)
+              .then(async (data) => {
+                await saveCache(cached.lat, cached.lng, data);
+                setFacilities(data.facilities || []);
+                setMeta(data);
+                setCacheAge(0);
+              })
+              .catch(() => {}) // silent fail
+              .finally(() => setBgFetching(false));
+          }
+          return;
+        }
+      }
+
+      // 2. If no cache or forced refresh, start lazy loading and acquire GPS
+      setStatus('loading');
       const loc = await getCurrentLocation();
       if (!loc) { setStatus('denied'); setRefreshing(false); return; }
       setCoords(loc);
 
-      // 2. Reverse geocode — non-blocking, update whenever it's ready
+      // 3. Reverse geocode — non-blocking, update when ready
       getAddressFromCoords(loc.latitude, loc.longitude).then(setAddress);
 
-      // 3. Check cache
-      if (!forceRefresh) {
-        const cached = await loadCache();
-        if (cached) {
-          const moved = haversine(cached.lat, cached.lng, loc.latitude, loc.longitude);
-          // Use cache if user hasn't moved more than 500m
-          if (moved < 0.5) {
-            setFacilities(cached.data.facilities || []);
-            setMeta(cached.data);
-            setCacheAge(cached.ageMs);
-            setStatus('done');
-            setRefreshing(false);
-
-            // Silently refresh in background if cache is older than 5 min
-            if (cached.ageMs > 5 * 60 * 1000) {
-              setBgFetching(true);
-              fetchNearby(loc.latitude, loc.longitude)
-                .then(async (data) => {
-                  await saveCache(loc.latitude, loc.longitude, data);
-                  setFacilities(data.facilities || []);
-                  setMeta(data);
-                  setCacheAge(0);
-                })
-                .catch(() => {}) // silent fail — cache is still valid
-                .finally(() => setBgFetching(false));
-            }
-            return;
-          }
-        }
-      }
-
       // 4. Fresh fetch from backend
-      setStatus('loading');
       const data = await fetchNearby(loc.latitude, loc.longitude);
       await saveCache(loc.latitude, loc.longitude, data);
       setFacilities(data.facilities || []);
@@ -221,7 +285,11 @@ export default function NearbyScreen() {
         setCacheAge(cached.ageMs);
         setStatus('done');
       } else {
-        setStatus(err.message === 'timeout' ? 'timeout' : 'error');
+        // Safe offline fallback with key Ghanaian hospitals
+        setFacilities(FALLBACK_HOSPITALS);
+        setMeta({ source: 'offline_fallback', facilities: FALLBACK_HOSPITALS });
+        setCacheAge(null);
+        setStatus('done');
       }
     } finally {
       setRefreshing(false);
@@ -251,18 +319,6 @@ export default function NearbyScreen() {
   );
 
   // ── Status screens ────────────────────────────────────────────────────────
-  if (status === 'loading') return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#D32F2F" />
-      <Header />
-      <View style={[s.body, s.center]}>
-        <ActivityIndicator size="large" color="#D32F2F" />
-        <Text style={s.stateTitle}>Finding health facilities near you...</Text>
-        <Text style={s.stateSub}>Searching OpenStreetMap — please wait </Text>
-      </View>
-    </View>
-  );
-
   if (status === 'denied') return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" backgroundColor="#D32F2F" />
@@ -346,6 +402,8 @@ export default function NearbyScreen() {
               <Text style={isLive ? s.liveTxt : s.staticTxt} numberOfLines={2}>
                 {isLive
                   ? language === 'twi' ? 'Yɛhuu yadeɛhaw a wɔbɛn wo ho' : 'Showing health facilities near your location'
+                  : meta?.source === 'offline_fallback'
+                  ? language === 'twi' ? 'Wunni internet. Yɛrekyerɛ Ghana ayaresabea titiriw a yɛakora.' : 'Offline Mode: Showing major referral hospitals in Ghana.'
                   : language === 'twi' ? 'Yɛreyɛ adwuma — yadeɛhaw titiriw bi na yɛkyerɛ' : 'Showing major hospitals — tap refresh for local results'
                 }
               </Text>
@@ -383,10 +441,18 @@ export default function NearbyScreen() {
             </View>
           )}
 
-          {/* Cards */}
-          {facilities.map((f, i) => (
-            <FacilityCard key={`${f.name}-${i}`} facility={f} language={language} rank={i+1} />
-          ))}
+          {/* Cards or Skeletons (Lazy Loading) */}
+          {status === 'loading' ? (
+            <View style={{ gap: 12 }}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          ) : (
+            facilities.map((f, i) => (
+              <FacilityCard key={`${f.name}-${i}`} facility={f} language={language} rank={i+1} />
+            ))
+          )}
 
           {/* Ambulance reminder */}
           {facilities.length > 0 && (

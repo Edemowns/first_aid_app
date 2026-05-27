@@ -132,7 +132,7 @@ export default function MediaInput({
         return;
       }
 
-      onVoiceText(cleanedTranscript);
+      onVoiceText?.(cleanedTranscript);
       onVoiceTranscribed?.(cleanedTranscript);
 
       setTranscribing(false);

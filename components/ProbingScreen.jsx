@@ -1,6 +1,3 @@
-// components/ProbingScreen.jsx
-// Shows follow-up questions from the AI before giving first aid guidance
-
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity,
@@ -8,181 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Common answer options for different question types
-const ANSWER_OPTIONS = {
-  yes_no: [
-    { label: 'Yes', value: 'Yes', name: 'checkmark-circle' },
-    { label: 'No', value: 'No', name: 'close-circle' },
-  ],
-  conscious: [
-    { label: 'Conscious & Alert', value: 'Conscious and alert', name: 'eye' },
-    { label: 'Unconscious', value: 'Unconscious', name: 'moon' },
-    { label: 'Semi-conscious', value: 'Semi-conscious', name: 'help-circle' },
-  ],
-  breathing: [
-    { label: 'Normal breathing', value: 'Normal breathing', name: 'heart' },
-    { label: 'Difficulty breathing', value: 'Difficulty breathing', name: 'alert-circle' },
-    { label: 'Not breathing', value: 'Not breathing', name: 'heart-dislike' },
-  ],
-  bleeding: [
-    { label: 'No bleeding', value: 'No bleeding', name: 'checkmark-circle' },
-    { label: 'Light bleeding', value: 'Light bleeding', name: 'water' },
-    { label: 'Heavy bleeding', value: 'Heavy bleeding', name: 'water-outline' },
-    { label: 'Arterial spurting', value: 'Arterial spurting', name: 'flash' },
-  ],
-  vomit_blood: [
-    { label: 'No blood in vomit', value: 'No blood in vomit', name: 'checkmark-circle' },
-    { label: 'Small amount of blood', value: 'Small amount of blood', name: 'water' },
-    { label: 'Significant blood', value: 'Significant blood', name: 'water-outline' },
-    { label: 'Mostly blood', value: 'Mostly blood', name: 'alert-circle' },
-  ],
-  trigger_vs_constant: [
-    { label: 'Only during a specific action', value: 'Only during a specific action', name: 'pulse' },
-    { label: 'Constant regardless of activity', value: 'Constant regardless of activity', name: 'pulse' },
-    { label: 'Sometimes or not sure', value: 'Sometimes or not sure', name: 'help-circle' },
-  ],
-  pain_type: [
-    { label: 'Sharp or stabbing', value: 'Sharp or stabbing', name: 'flash' },
-    { label: 'Aching or dull', value: 'Aching or dull', name: 'ellipse' },
-    { label: 'Burning', value: 'Burning', name: 'flame' },
-    { label: 'Throbbing', value: 'Throbbing', name: 'pulse' },
-  ],
-  location: [
-    { label: 'Upper body', value: 'Upper body', name: 'arrow-up' },
-    { label: 'Lower body', value: 'Lower body', name: 'arrow-down' },
-    { label: 'Left side', value: 'Left side', name: 'arrow-back' },
-    { label: 'Right side', value: 'Right side', name: 'arrow-forward' },
-  ],
-  frequency: [
-    { label: 'Once or twice', value: 'Once or twice', name: 'checkmark-circle' },
-    { label: 'Several times', value: 'Several times', name: 'alert-circle' },
-    { label: 'Continuous', value: 'Continuous', name: 'flash' },
-  ],
-  time: [
-    { label: 'Just now', value: 'Just now', name: 'flash' },
-    { label: '< 5 minutes', value: 'Less than 5 minutes', name: 'time' },
-    { label: '5-15 minutes', value: '5-15 minutes', name: 'time-outline' },
-    { label: '> 15 minutes', value: 'More than 15 minutes', name: 'hourglass' },
-  ],
-  pain: [
-    { label: 'No pain', value: 'No pain', name: 'happy' },
-    { label: 'Mild pain', value: 'Mild pain', name: 'sad' },
-    { label: 'Severe pain', value: 'Severe pain', name: 'medical' },
-    { label: 'Unbearable pain', value: 'Unbearable pain', name: 'alert-circle' },
-  ],
-  movement: [
-    { label: 'Can move normally', value: 'Can move normally', name: 'walk' },
-    { label: 'Limited movement', value: 'Limited movement', name: 'hand-left' },
-    { label: 'Cannot move', value: 'Cannot move', name: 'ban' },
-  ],
-  severity: [
-    { label: 'Mild symptoms', value: 'Mild symptoms', name: 'happy' },
-    { label: 'Moderate symptoms', value: 'Moderate symptoms', name: 'alert-circle' },
-    { label: 'Severe symptoms', value: 'Severe symptoms', name: 'medical' },
-  ],
-  poison_type: [
-    { label: 'Unknown substance', value: 'Unknown substance', name: 'help-circle' },
-    { label: 'Chemical/Cleaner', value: 'Chemical or cleaning product', name: 'alert-circle' },
-    { label: 'Food poisoning', value: 'Food poisoning', name: 'water' },
-    { label: 'Medication overdose', value: 'Medication overdose', name: 'medical' },
-  ],
-};
-
-// Function to determine answer type based on question content
-const getAnswerType = (question) => {
-  const q = question.toLowerCase();
-
-  // Consciousness - variations
-  if (q.includes('conscious') || q.includes('awake') || q.includes('alert') || q.includes('responsive')) {
-    return 'conscious';
-  }
-
-  // Breathing - variations
-  if (q.includes('breathing') || q.includes('breathe') || q.includes('respiratory') || q.includes('shortness of breath')) {
-    return 'breathing';
-  }
-
-  // Vomit with blood - specific to vomiting incidents
-  if ((q.includes('vomit') || q.includes('vomiting')) && (q.includes('blood') || q.includes('bleeding'))) {
-    return 'vomit_blood';
-  }
-
-  // Questions about pain or symptoms that happen only during an action versus constantly
-  if (
-    q.includes('only when') ||
-    q.includes('constant') ||
-    q.includes('always') ||
-    (q.includes('or') && q.includes('only') && q.includes('when')) ||
-    q.includes('worse when')
-  ) {
-    return 'trigger_vs_constant';
-  }
-
-  // Urination-specific questions use a more accurate answer set too
-  if (q.includes('urinate') || q.includes('urination')) {
-    return 'trigger_vs_constant';
-  }
-
-  // Pain quality or type
-  if (q.includes('type of pain') || q.includes('what kind of pain') || q.includes('sharp') || q.includes('aching') || q.includes('burning') || q.includes('throbbing')) {
-    return 'pain_type';
-  }
-
-  // Pain or symptom location
-  if (q.includes('where') && (q.includes('pain') || q.includes('hurt') || q.includes('injury') || q.includes('bleeding'))) {
-    return 'location';
-  }
-
-  // General bleeding (injuries, wounds)
-  if ((q.includes('bleeding') || q.includes('blood')) && !q.includes('vomit')) {
-    return 'bleeding';
-  }
-
-  // Frequency (vomiting frequency, seizure frequency, etc)
-  if (q.includes('how many') || q.includes('how often') || q.includes('frequency') || q.includes('times')) {
-    return 'frequency';
-  }
-
-  // Time duration
-  if (
-    q.includes('how long') ||
-    q.includes('duration') ||
-    q.includes('minutes') ||
-    q.includes('hours') ||
-    q.includes('seconds') ||
-    q.includes('when did') ||
-    q.includes('did it last') ||
-    q.includes('how much time')
-  ) {
-    return 'time';
-  }
-
-  // Pain level
-  if (q.includes('pain') || q.includes('hurt') || q.includes('ache') || q.includes('sore')) {
-    return 'pain';
-  }
-
-  // Movement/mobility
-  if (q.includes('move') || q.includes('movement') || q.includes('mobile') || q.includes('walk')) {
-    return 'movement';
-  }
-
-  // Severity
-  if (q.includes('severe') || q.includes('mild') || q.includes('moderate') || q.includes('serious')) {
-    return 'severity';
-  }
-
-  // Poison type
-  if (q.includes('poison') || q.includes('toxic') || q.includes('ingested') || q.includes('swallowed') || q.includes('substance')) {
-    return 'poison_type';
-  }
-
-  // Default to yes/no for anything else
-  return 'yes_no';
-};
-
 export default function ProbingScreen({
-  questions,    // [{ id, text, textTwi }]
+  questions,    // [{ id, text, textTwi, question, options }]
   summary,      // string — what the AI understood
   language,     // 'en' | 'twi'
   onSubmit,     // (answers: [{question, answer}]) => void
@@ -199,7 +23,7 @@ export default function ProbingScreen({
 
   const handleSubmit = () => {
     const answerList = questions.map(q => ({
-      question: q.text,
+      question: q.text || q.question || '',
       answer: answers[q.id],
     }));
     onSubmit(answerList);
@@ -222,9 +46,10 @@ export default function ProbingScreen({
       </Text>
 
       {/* Questions */}
+      {}
       {questions.map((q, i) => {
-        const answerType = getAnswerType(q.text);
-        const options = ANSWER_OPTIONS[answerType] || ANSWER_OPTIONS.yes_no;
+        const questionText = q.text || q.question || '';
+        const options = q.options || [];
 
         return (
           <View key={q.id} style={s.questionBox}>
@@ -233,24 +58,47 @@ export default function ProbingScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.qText}>
-                {language === 'twi' && q.textTwi ? q.textTwi : q.text}
+                {language === 'twi' 
+                  ? (q.textTwi || questionText) 
+                  : questionText}
               </Text>
 
               {/* Answer Buttons */}
               <View style={s.optionsGrid}>
                 {options.map((option, idx) => {
-                  const isSelected = answers[q.id] === option.value;
+                  const isSelected = answers[q.id] === option.label;
                   return (
                     <TouchableOpacity
                       key={idx}
                       style={[s.optionBtn, isSelected && s.optionBtnSelected]}
-                      onPress={() => handleAnswerSelect(q.id, option.value)}
+                      onPress={() => handleAnswerSelect(q.id, option.label)}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name={option.name} size={20} color={isSelected ? '#FFFFFF' : '#424242'} />
-                      <Text style={[s.optionText, isSelected && s.optionTextSelected]}>
-                        {option.label}
-                      </Text>
+                      {/* Dynamic radio style indicator replacing strict static icon map */}
+                      <Ionicons 
+                        name={isSelected ? 'radio-button-on' : 'radio-button-off'} 
+                        size={20} 
+                        color={isSelected ? '#FFFFFF' : '#424242'} 
+                      />
+                      
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.optionText, isSelected && s.optionTextSelected]}>
+                          {option.label}
+                        </Text>
+
+                        {/* Display option descriptions when present */}
+                        {!!option.description && (
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: isSelected ? '#FFEBEE' : '#757575',
+                              marginTop: 2,
+                            }}
+                          >
+                            {option.description}
+                          </Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -261,6 +109,7 @@ export default function ProbingScreen({
       })}
 
       {/* Submit */}
+      {}
       <TouchableOpacity
         style={[s.submitBtn, (!allAnswered || loading) && s.submitBtnOff]}
         onPress={handleSubmit}

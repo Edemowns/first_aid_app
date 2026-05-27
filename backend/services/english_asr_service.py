@@ -31,19 +31,76 @@ def load_model():
 
 
 async def transcribe(audio_bytes: bytes) -> dict:
-    """Transcribe English audio using a local Whisper model."""
+    """Transcribe English audio using Groq API as primary, and local Whisper as fallback."""
     global _model
+    
+    # Check if Groq API is available and we can use it as the primary option
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if groq_api_key:
+        try:
+            import httpx
+            logger.info("Using Groq API for English transcription.")
+            
+            # Use data for parameters and files for file in httpx multipart request
+            files = {
+                "file": ("recording.wav", audio_bytes, "audio/wav")
+            }
+            data = {
+                "model": "whisper-large-v3",
+                "language": "en"
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {groq_api_key}"},
+                    files=files,
+                    data=data,
+                    timeout=30.0
+                )
+                
+            if response.status_code == 200:
+                resp_json = response.json()
+                transcript = resp_json.get("text", "").strip()
+                logger.info(f"Groq API transcription successful: {transcript}")
+                return {
+                    "transcript": transcript,
+                    "confidence": 1.0,
+                    "language": "en",
+                    "status": "ok",
+                }
+            else:
+                err_detail = f"Groq API Error {response.status_code}: {response.text}"
+                logger.error(err_detail)
+                return {
+                    "transcript": "",
+                    "confidence": 0.0,
+                    "language": "en",
+                    "status": "groq_error",
+                    "error": err_detail,
+                }
+        except Exception as e:
+            err_detail = f"Groq transcription exception: {str(e)}"
+            logger.error(err_detail)
+            return {
+                "transcript": "",
+                "confidence": 0.0,
+                "language": "en",
+                "status": "groq_exception",
+                "error": err_detail,
+            }
+
     if _model is None:
         load_model()
 
     if _model is None:
-        logger.error("English ASR model is not loaded.")
+        logger.error("English ASR model is not loaded and Groq transcription key is missing.")
         return {
             "transcript": "",
             "confidence": 0.0,
             "language": "en",
             "status": "model_not_loaded",
-            "error": "Local Whisper ASR model is unavailable.",
+            "error": "Local Whisper ASR model is unavailable, and no GROQ_API_KEY is set.",
         }
 
     temp_path = None

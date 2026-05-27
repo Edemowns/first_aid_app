@@ -1,27 +1,52 @@
 // services/api.js
 // Backend API integration — FastAPI server
 
-export const BASE_URL = "https://crescentlike-portless-hailee.ngrok-free.dev";
+
+export const BASE_URL = "http://172.20.10.12:8000";
+
+
 
 
 // ─────────────────────────────────────────────
 // STAGE 1 — PROBE EMERGENCY
 // ─────────────────────────────────────────────
 
-export async function probeEmergency(description, language = 'en') {
+export async function probeEmergency(
+  description,
+  language = 'en',
+  imageBase64 = null,
+  mediaType = 'image/jpeg'
+) {
+
   console.log('Calling PROBE API');
 
+  const controller = new AbortController();
+  // Fast 4.5s timeout for emergency responsiveness (Ghana local connectivity fallback)
+  const timeoutId = setTimeout(() => controller.abort(), 4500);
+
   try {
+
+    const payload = {
+      description,
+      language,
+      image_base64: imageBase64,
+      media_type: mediaType,
+    };
+
+    console.log('Probe payload:', {
+      ...payload,
+      image_base64: imageBase64 ? '[BASE64_IMAGE_PRESENT]' : null,
+    });
+
     const response = await fetch(`${BASE_URL}/probe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        description,
-        language,
-      }),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     console.log('Probe response status:', response.status);
 
@@ -37,8 +62,10 @@ export async function probeEmergency(description, language = 'en') {
     return data;
 
   } catch (error) {
+
     console.error('probeEmergency error:', error.message);
     throw error;
+
   }
 }
 
@@ -50,21 +77,34 @@ export async function probeEmergency(description, language = 'en') {
 export async function diagnoseEmergency(
   description,
   answers,
-  language = 'en'
+  language = 'en',
+  imageBase64 = null,
+  mediaType = 'image/jpeg'
 ) {
+
   console.log('Calling DIAGNOSIS API');
 
   try {
+
+    const payload = {
+      description,
+      answers,
+      language,
+      image_base64: imageBase64,
+      media_type: mediaType,
+    };
+
+    console.log('Diagnosis payload:', {
+      ...payload,
+      image_base64: imageBase64 ? '[BASE64_IMAGE_PRESENT]' : null,
+    });
+
     const response = await fetch(`${BASE_URL}/diagnose`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        description,
-        answers,
-        language,
-      }),
+      body: JSON.stringify(payload),
     });
 
     console.log('Diagnosis response status:', response.status);
@@ -81,24 +121,27 @@ export async function diagnoseEmergency(
     return data;
 
   } catch (error) {
+
     console.error('diagnoseEmergency error:', error.message);
     throw error;
+
   }
 }
 
 
 // ─────────────────────────────────────────────
 // OLD ANALYZE FUNCTION (OPTIONAL)
-// Keep this for backward compatibility
 // ─────────────────────────────────────────────
 
 export async function analyzeEmergency(
   description,
   language = 'en'
 ) {
+
   console.log('Calling API:', `${BASE_URL}/analyze`);
 
   try {
+
     const response = await fetch(`${BASE_URL}/analyze`, {
       method: 'POST',
       headers: {
@@ -118,8 +161,10 @@ export async function analyzeEmergency(
     return await response.json();
 
   } catch (error) {
+
     console.error('analyzeEmergency error:', error.message);
     throw error;
+
   }
 }
 
@@ -129,19 +174,32 @@ export async function analyzeEmergency(
 // ─────────────────────────────────────────────
 
 function getAudioMimeType(uri) {
+
   const match = uri.match(/\.([a-zA-Z0-9]+)$/);
   const ext = match ? match[1].toLowerCase() : 'wav';
+
   switch (ext) {
-    case 'm4a': return 'audio/m4a';
-    case 'mp4': return 'audio/mp4';
-    case 'aac': return 'audio/aac';
-    case 'caf': return 'audio/x-caf';
-    default: return 'audio/wav';
+    case 'm4a':
+      return 'audio/m4a';
+
+    case 'mp4':
+      return 'audio/mp4';
+
+    case 'aac':
+      return 'audio/aac';
+
+    case 'caf':
+      return 'audio/x-caf';
+
+    default:
+      return 'audio/wav';
   }
 }
 
 export async function transcribeAudio(audioUri, language = 'en') {
+
   const formData = new FormData();
+
   const mimeType = getAudioMimeType(audioUri);
   const extension = mimeType.split('/').pop().replace('x-', '');
 
@@ -151,10 +209,13 @@ export async function transcribeAudio(audioUri, language = 'en') {
     name: `recording.${extension}`,
   });
 
-  const response = await fetch(`${BASE_URL}/transcribe?language=${language}`, {
-    method: 'POST',
-    body: formData,
-  });
+  const response = await fetch(
+    `${BASE_URL}/transcribe?language=${language}`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -181,7 +242,9 @@ export async function transcribeTwi(audioUri) {
 // ─────────────────────────────────────────────
 
 export async function getNearbyFacilities(latitude, longitude) {
+
   try {
+
     const response = await fetch(
       `${BASE_URL}/nearby-facilities?lat=${latitude}&lng=${longitude}`
     );
@@ -193,7 +256,9 @@ export async function getNearbyFacilities(latitude, longitude) {
     return await response.json();
 
   } catch (error) {
+
     console.error('getNearbyFacilities error:', error.message);
     throw error;
+
   }
 }
