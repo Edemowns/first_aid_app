@@ -22,8 +22,8 @@ export async function probeEmergency(
   console.log('Calling PROBE API');
 
   const controller = new AbortController();
-  // Fast 4.5s timeout for emergency responsiveness (Ghana local connectivity fallback)
-  const timeoutId = setTimeout(() => controller.abort(), 4500);
+  // 15s timeout for robust emergency connectivity (accommodates slow Gemini vision / mobile network)
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
 

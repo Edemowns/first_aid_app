@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Alert, Keyboard, StatusBar,
+  StyleSheet, ActivityIndicator, Alert, Keyboard, StatusBar, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -88,6 +88,17 @@ const SCENARIOS = [
     color: '#059669',
   },
 ];
+
+const showAlert = (title, message, buttons) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    if (buttons && buttons[0] && typeof buttons[0].onPress === 'function') {
+      buttons[0].onPress();
+    }
+  } else {
+    Alert.alert(title, message, buttons);
+  }
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -177,7 +188,7 @@ export default function HomeScreen() {
 
   // ❌ Neither text nor image provided
   if (!hasText && !hasImage) {
-    Alert.alert(
+    showAlert(
       language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
       language === 'twi'
         ? 'Kyerɛ asɛm no anaa fa foto ka ho.'
@@ -269,7 +280,7 @@ export default function HomeScreen() {
       is_offline: true,
     };
 
-    Alert.alert(
+    showAlert(
       language === 'twi' ? 'Wunni Internet (Offline)' : 'Offline Mode Active',
       language === 'twi' 
         ? 'Wunni internet mprempren. Yɛrekyerɛ wo mmoa nhyehyɛeɛ a yɛakora wɔ app yi mu.' 
@@ -312,7 +323,7 @@ export default function HomeScreen() {
             params: { data: JSON.stringify(result), language },
           });
         } catch (err) {
-          Alert.alert(
+          showAlert(
             language === 'twi' ? 'Mfomso' : 'Error',
             err.message || 'Could not reach AI service.'
           );
