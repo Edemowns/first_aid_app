@@ -198,12 +198,15 @@ export default function HomeScreen() {
       image?.mediaType || 'image/jpeg'
     );
 
-    // ✅ AI wants follow-up probing questions
-    if (result.stage === 'probing' && result.questions?.length > 0) {
+    console.log('[Frontend API Response]:', JSON.stringify(result, null, 2));
 
+    // ✅ AI wants follow-up probing questions
+    if (result && result.stage === 'probing' && result.questions && result.questions.length > 0) {
+      console.log('[Frontend] Entering probing stage with', result.questions.length, 'questions');
+      
       const transformedQuestions = result.questions.map((q, i) => ({
         id: q.id || `q${i + 1}`,
-        text: q.question,
+        text: q.text || q.question || '',
         type: q.type || 'single_choice',
         options: q.options || [],
       }));
@@ -214,8 +217,10 @@ export default function HomeScreen() {
       });
 
       setStage('probing');
+      console.log('[Frontend] Stage state set to probing successfully.');
 
     } else {
+      console.log('[Frontend] Direct diagnosis result returned.');
 
       // ✅ Direct diagnosis / result
       router.push({
