@@ -78,15 +78,20 @@ export default function MediaInput({
   };
 
   const showImageOptions = () => {
-    Alert.alert(
-      language === 'twi' ? 'Fa Foto' : 'Add Photo',
-      language === 'twi' ? 'Paw nhyehyɛe bi' : 'Choose an option',
-      [
-        { text: language === 'twi' ? 'Twe Foto' : 'Take Photo',          onPress: takePhoto },
-        { text: language === 'twi' ? 'Paw firi Galerie' : 'From Gallery', onPress: pickImage },
-        { text: language === 'twi' ? 'Gyae' : 'Cancel', style: 'cancel' },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      // On Web, React Native's Alert.alert is silent. Directly launch standard file/image selector.
+      pickImage();
+    } else {
+      Alert.alert(
+        language === 'twi' ? 'Fa Foto' : 'Add Photo',
+        language === 'twi' ? 'Paw nhyehyɛe bi' : 'Choose an option',
+        [
+          { text: language === 'twi' ? 'Twe Foto' : 'Take Photo',          onPress: takePhoto },
+          { text: language === 'twi' ? 'Paw firi Galerie' : 'From Gallery', onPress: pickImage },
+          { text: language === 'twi' ? 'Gyae' : 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
   };
 
   // ── Voice ────────────────────────────────────────────────────────────────
