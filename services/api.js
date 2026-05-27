@@ -1,5 +1,6 @@
 // services/api.js
 // Backend API integration — FastAPI server
+import { Platform } from 'react-native';
 
 
 //export const BASE_URL = "http://172.20.10.12:8000";
@@ -200,14 +201,22 @@ export async function transcribeAudio(audioUri, language = 'en') {
 
   const formData = new FormData();
 
-  const mimeType = getAudioMimeType(audioUri);
-  const extension = mimeType.split('/').pop().replace('x-', '');
+  if (Platform.OS === 'web') {
+    // Web Flow: Fetch the local Blob from object URL and append it as a real File/Blob
+    const blobResponse = await fetch(audioUri);
+    const audioBlob = await blobResponse.blob();
+    formData.append('audio', audioBlob, 'recording.wav');
+  } else {
+    // Native Flow: React Native specific multi-part file object
+    const mimeType = getAudioMimeType(audioUri);
+    const extension = mimeType.split('/').pop().replace('x-', '');
 
-  formData.append('audio', {
-    uri: audioUri,
-    type: mimeType,
-    name: `recording.${extension}`,
-  });
+    formData.append('audio', {
+      uri: audioUri,
+      type: mimeType,
+      name: `recording.${extension}`,
+    });
+  }
 
   const response = await fetch(
     `${BASE_URL}/transcribe?language=${language}`,

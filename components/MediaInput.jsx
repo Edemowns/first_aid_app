@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Image, Alert, ActivityIndicator,
+  Image, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
@@ -23,21 +23,27 @@ export default function MediaInput({
   const [transcribing, setTranscribing] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState(language === 'twi' ? 'twi' : 'en');
 
+  // Web media recorder references (persists across renders)
+  const webMediaRecorderRef = React.useRef(null);
+  const webAudioChunksRef = React.useRef([]);
+
   useEffect(() => {
     setVoiceLanguage(language === 'twi' ? 'twi' : 'en');
   }, [language]);
 
   // ── Image ────────────────────────────────────────────────────────────────
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
-        language === 'twi'
-          ? 'Yehia kamera ahoban sɛ yɛtwe foto.'
-          : 'Camera permission is required to take photos.'
-      );
-      return;
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
+          language === 'twi'
+            ? 'Yehia kamera ahoban sɛ yɛtwe foto.'
+            : 'Camera permission is required to take photos.'
+        );
+        return;
+      }
     }
     const result = await ImagePicker.launchCameraAsync({
       base64: true, quality: 0.7,
@@ -49,15 +55,17 @@ export default function MediaInput({
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
-        language === 'twi'
-          ? 'Yehia foto ahoban sɛ yɛpaw foto.'
-          : 'Photo library permission is required.'
-      );
-      return;
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
+          language === 'twi'
+            ? 'Yehia foto ahoban sɛ yɛpaw foto.'
+            : 'Photo library permission is required.'
+        );
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -84,39 +92,79 @@ export default function MediaInput({
   // ── Voice ────────────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert(
-          language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
-          language === 'twi'
-            ? 'Yehia maikrofon ahoban sɛ wukasa.'
-            : 'Microphone permission is required for voice input.'
+      if (Platform.OS === 'web') {
+        // Web Audio Recording using standard browser MediaRecorder
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        webAudioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            webAudioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+        webMediaRecorderRef.current = mediaRecorder;
+        setIsRecording(true);
+      } else {
+        // Native Audio Recording (expo-av)
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) {
+          Alert.alert(
+            language === 'twi' ? 'Ahoban Hia' : 'Permission Needed',
+            language === 'twi'
+              ? 'Yehia maikrofon ahoban sɛ wukasa.'
+              : 'Microphone permission is required for voice input.'
+          );
+          return;
+        }
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+        const { recording: rec } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
-        return;
+        setRecording(rec);
+        setIsRecording(true);
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-      const { recording: rec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(rec);
-      setIsRecording(true);
-    } catch {
+    } catch (err) {
+      console.error('Start recording error:', err);
       Alert.alert('Error', 'Could not start recording. Please try again.');
     }
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
     setIsRecording(false);
     setTranscribing(true);
 
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      let uri = '';
+      
+      if (Platform.OS === 'web') {
+        if (!webMediaRecorderRef.current) return;
+        
+        const stopPromise = new Promise((resolve) => {
+          webMediaRecorderRef.current.onstop = () => {
+            const audioBlob = new Blob(webAudioChunksRef.current, { type: 'audio/wav' });
+            const blobUrl = URL.createObjectURL(audioBlob);
+            
+            // Release the microphone stream
+            webMediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            resolve({ blobUrl });
+          };
+        });
+
+        webMediaRecorderRef.current.stop();
+        const { blobUrl } = await stopPromise;
+        uri = blobUrl;
+      } else {
+        if (!recording) return;
+        await recording.stopAndUnloadAsync();
+        uri = recording.getURI();
+        setRecording(null);
+      }
 
       const transcript = await transcribeAudio(uri, voiceLanguage);
       const cleanedTranscript = transcript?.trim();
