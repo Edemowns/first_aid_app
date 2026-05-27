@@ -2,8 +2,8 @@
 // Backend API integration — FastAPI server
 
 
-export const BASE_URL = "http://172.20.10.12:8000";
-
+//export const BASE_URL = "http://172.20.10.12:8000";
+export const BASE_URL ="https://first-aid-app-72im.onrender.com";
 
 
 
