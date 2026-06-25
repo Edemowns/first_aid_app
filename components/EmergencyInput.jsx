@@ -15,11 +15,13 @@ import {
 import { Audio } from 'expo-av';
 import { colors, spacing, radius, shadow, typography } from '../constants/theme';
 import { transcribeTwi, analyze } from '../services/api';
+import { useConnectivity } from '../services/connectivity';
 
 export default function EmergencyInput({ value, onChangeText, language, onSubmit, loading }) {
   const [recording, setRecording] = useState(null);
   const [transcribing, setTranscribing] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const { isOnline, loading: connectivityLoading } = useConnectivity();
 
   // Pulse animation while recording
   const startPulse = () => {
@@ -130,8 +132,46 @@ export default function EmergencyInput({ value, onChangeText, language, onSubmit
 
         {/* Submit button */}
         <TouchableOpacity
-          style={[styles.submitBtn, (!value?.trim() || loading) && styles.submitBtnDisabled]}
-          onPress={onSubmit}
+          style={[
+            styles.submitBtn,
+            (!value?.trim() || loading || connectivityLoading) && styles.submitBtnDisabled,
+          ]}
+          onPress={() => {
+            if (connectivityLoading) {
+              Alert.alert(
+                language === 'twi' ? 'Tietie' : 'Checking...',
+                language === 'twi'
+                  ? 'Wɔreka hwɛ internet connection...'
+                  : 'Checking internet connection...'
+              );
+              return;
+            }
+
+            if (!isOnline) {
+              // Offline mode - use local diagnosis
+              Alert.alert(
+                language === 'twi' ? 'Offline Mode' : 'Offline Mode',
+                language === 'twi'
+                  ? 'Internet nkɔ. Wɔbɛde offline diagnosis ma wo. Diagnosis no bɛyɛ kakrankakran.'
+                  : 'You are offline. Using local diagnosis. Results may be limited.',
+                [
+                  {
+                    text: language === 'twi' ? 'Kɔ' : 'Go Ahead',
+                    onPress: onSubmit,
+                    style: 'default',
+                  },
+                  {
+                    text: language === 'twi' ? 'Gye' : 'Cancel',
+                    style: 'cancel',
+                  },
+                ]
+              );
+              return;
+            }
+
+            // Online mode - proceed normally
+            onSubmit();
+          }}
           disabled={!value?.trim() || loading}
         >
           {loading ? (
@@ -149,6 +189,15 @@ export default function EmergencyInput({ value, onChangeText, language, onSubmit
         <Text style={styles.recordingHint}>
           🔴 {language === 'twi' ? 'Wɔrекɔrdɩng... pɛ "Gyae" wɔ awieeɛ' : 'Recording... tap Stop when done'}
         </Text>
+      )}
+
+      {/* Connectivity status */}
+      {!connectivityLoading && !isOnline && (
+        <View style={styles.offlineBadge}>
+          <Text style={styles.offlineBadgeText}>
+            📡 {language === 'twi' ? 'Offline - Local diagnosis only' : 'Offline - Local diagnosis only'}
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -217,5 +266,21 @@ const styles = StyleSheet.create({
     color: colors.severityCritical,
     textAlign: 'center',
     marginTop: spacing.xs,
+  },
+
+  offlineBadge: {
+    backgroundColor: '#FEF08A',
+    borderColor: '#FACC15',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  offlineBadgeText: {
+    fontSize: typography.small,
+    color: '#78350F',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

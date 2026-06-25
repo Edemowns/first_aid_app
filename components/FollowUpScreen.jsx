@@ -16,7 +16,9 @@ export default function DiagnosisScreen({
   originalText,   // string - original emergency description
   probingAnswers, // [{ question, answer }]
   language,       // 'en' | 'twi'
+  sessionId,
   onFollowUpSubmit, // async (message) => returns { message, updated_steps, updated_warnings, call_immediately }
+  onSessionUpdate, // async ({ sessionId, steps, warnings, call_immediately, chat_feed })
   onResetEmergency, // () => void - Resets the app state for a new emergency
 }) {
   const router = useRouter();
@@ -46,8 +48,20 @@ export default function DiagnosisScreen({
   };
   
   // Conversation feed to show historical follow-ups
-  const [chatFeed, setChatFeed] = useState([]);
+  const [chatFeed, setChatFeed] = useState(diagnosis.chat_feed || []);
   const scrollViewRef = useRef();
+
+  // If a saved session provides a chat_feed, populate it on first render only
+  React.useEffect(() => {
+    try {
+      if ((diagnosis.chat_feed || []).length > 0 && chatFeed.length === 0) {
+        setChatFeed(diagnosis.chat_feed);
+      }
+    } catch (err) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSendFollowUp = async () => {
     if (!followUpText.trim() || loading) return;
@@ -56,35 +70,58 @@ export default function DiagnosisScreen({
     setFollowUpText('');
     setLoading(true);
 
-    // Optimistically add user's message to the feed
-    setChatFeed(prev => [...prev, { sender: 'user', text: userMsg }]);
-    
+    const initialFeed = [...chatFeed, { sender: 'user', text: userMsg }];
+    setChatFeed(initialFeed);
+
+    let newSteps = steps;
+    let newWarnings = warnings;
+    let newCallImmediately = callImmediately;
+    let updatedFeed = initialFeed;
+
     try {
       // Call the API service
       const response = await onFollowUpSubmit(userMsg);
       
       if (response) {
-        // Append AI response message to chat feed
         if (response.message) {
-          setChatFeed(prev => [...prev, { sender: 'ai', text: response.message }]);
+          updatedFeed = [...initialFeed, { sender: 'ai', text: response.message }];
+          setChatFeed(updatedFeed);
         }
         
-        // Dynamically update the dashboard instructions
-        if (response.updated_steps) setSteps(response.updated_steps);
-        if (response.updated_warnings) setWarnings(response.updated_warnings);
-        if (response.call_immediately !== undefined) setCallImmediately(response.call_immediately);
+        if (response.updated_steps) {
+          newSteps = response.updated_steps;
+          setSteps(newSteps);
+        }
+        if (response.updated_warnings) {
+          newWarnings = response.updated_warnings;
+          setWarnings(newWarnings);
+        }
+        if (response.call_immediately !== undefined) {
+          newCallImmediately = response.call_immediately;
+          setCallImmediately(newCallImmediately);
+        }
       }
     } catch (error) {
-      setChatFeed(prev => [
-        ...prev, 
-        { 
-          sender: 'ai', 
-          text: language === 'twi' 
-            ? "Mmoa mfiri hɔ, yɛpɛ kwan bɔne bi mu. Sɔ hwɛ bio." 
-            : "Sorry, I ran into an issue. Please try asking again." 
-        }
-      ]);
+      updatedFeed = [
+        ...initialFeed,
+        {
+          sender: 'ai',
+          text: language === 'twi'
+            ? 'Mmoa mfiri hɔ, yɛpɛ kwan bɔne bi mu. Sɔ hwɛ bio.'
+            : 'Sorry, I ran into an issue. Please try asking again.',
+        },
+      ];
+      setChatFeed(updatedFeed);
     } finally {
+      if (typeof onSessionUpdate === 'function') {
+        onSessionUpdate({
+          sessionId,
+          steps: newSteps,
+          warnings: newWarnings,
+          call_immediately: newCallImmediately,
+          chat_feed: updatedFeed,
+        });
+      }
       setLoading(false);
       // Auto-scroll to the bottom of the feed
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
@@ -121,6 +158,14 @@ export default function DiagnosisScreen({
     }
   };
 
+  const normalizeWarning = (warning) => {
+    const trimmed = warning.trim();
+    if (/^(If|When|Avoid|Do not|Never)\b/i.test(trimmed)) {
+      return trimmed;
+    }
+    return `If ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
@@ -142,12 +187,20 @@ export default function DiagnosisScreen({
         {/* Offline Banner */}
         {diagnosis.is_offline && (
           <View style={s.offlineBanner}>
-            <Ionicons name="cloud-offline" size={20} color="#E65100" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Ionicons name="cloud-offline" size={20} color="#E65100" />
+              <Text style={[s.offlineBannerText, { fontWeight: '700', color: '#E65100' }]}>
+                {language === 'twi' ? 'Offline Mode (Local ML Model)' : 'Offline Mode (Local ML Model)'}
+              </Text>
+            </View>
             <Text style={s.offlineBannerText}>
-              {language === 'twi' 
-                ? 'Offline Mode: Yɛrekyerɛ wo mmoa nhyehyɛeɛ a yɛakora wɔ app yi mu.' 
-                : 'Offline Mode: Showing preloaded guidelines from local database.'}
+              {diagnosis.source ? `Classifier: ${diagnosis.source}` : (language === 'twi' ? 'Mmoa nhyehyɛeɛ a yɛakora' : 'Using preloaded guidelines.')}
             </Text>
+            {diagnosis.confidence !== undefined && (
+              <Text style={[s.offlineBannerText, { fontStyle: 'italic', marginTop: 2, color: '#D84315' }]}>
+                {language === 'twi' ? `Ahoɔden: ${Math.round(diagnosis.confidence * 100)}% koraa` : `On-Device Confidence: ${Math.round(diagnosis.confidence * 100)}%`}
+              </Text>
+            )}
           </View>
         )}
 
@@ -213,12 +266,17 @@ export default function DiagnosisScreen({
         {warnings.length > 0 && (
           <View style={[s.section, s.warningSection]}>
             <Text style={[s.sectionHeader, s.warningHeader]}>
-              {language === 'twi' ? 'Kwan a ɛnsɛ sɛ wofa so:' : 'What NOT To Do:'}
+              {language === 'twi' ? 'Nsɛm a ɛho hia:' : 'Warning Signs:'}
+            </Text>
+            <Text style={s.warningSubText}>
+              {language === 'twi'
+                ? 'Sɛ eyi bi si a, hwehwɛ mmoa ntɛm.'
+                : 'If any of these happen, seek medical help.'}
             </Text>
             {warnings.map((warning, idx) => (
               <View key={idx} style={s.warningRow}>
-                <Ionicons name="close-circle" size={18} color="#C62828" style={{ marginTop: 2 }} />
-                <Text style={s.warningText}>{warning}</Text>
+                <Ionicons name="alert-circle" size={18} color="#C62828" style={{ marginTop: 2 }} />
+                <Text style={s.warningText}>{normalizeWarning(warning)}</Text>
               </View>
             ))}
           </View>
@@ -446,6 +504,12 @@ const s = StyleSheet.create({
   },
   warningHeader: {
     color: '#B71C1C',
+  },
+  warningSubText: {
+    fontSize: 13,
+    color: '#B71C1C',
+    marginBottom: 8,
+    lineHeight: 18,
   },
   warningRow: {
     flexDirection: 'row',

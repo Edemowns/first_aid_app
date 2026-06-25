@@ -266,6 +266,192 @@ export const OFFLINE_FIRST_AID = {
         'Mmbɔ mmden sɛ wobɛkyere anaa wobɛkum ɔwɔ no na ɔnnka wo bio.'
       ]
     }
+  },
+  poisoning: {
+    condition: 'Poisoning (Aduro Bɔne Nom)',
+    severity: 'critical',
+    call_immediately: true,
+    steps: {
+      en: [
+        'Try to identify what substance was swallowed, inhaled, or touched, and how much.',
+        'If the person is unconscious or not breathing, call 193 and start CPR immediately.',
+        'Do not induce vomiting unless specifically instructed by medical professionals.',
+        'If the substance is on the skin or in the eyes, rinse gently with clean water for 15-20 minutes.',
+        'Keep the container or label of the substance to show to the emergency medical team.'
+      ],
+      twi: [
+        'Hwɛ sɛ wobɛtumi ahu aduro bɔne anaa nwura ko a onipa no anom anaa ɔde nsa aka.',
+        'Sɛ onipa no atɔ sim na ɔnnhome a, frɛ 193 na hyɛ aseɛ yɛ CPR ntɛm ara.',
+        'Mmma no nnfe gye sɛ adɔktafoɔ na wɔhyɛ wo sɛ yɛ saa.',
+        'Sɛ aduro bɔne no gu ne wedeɛ anaa n’ani so a, fa nsuo hohoro so sima 15 kɔsi 20.',
+        'Kora aduro no kuruwa anaa deɛ ɛda so no so sɛ wobɛkyerɛ adɔktafoɔ.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not give the person anything to eat or drink (including milk or water) unless instructed by a doctor.',
+        'Do not induce vomiting — this can cause chemical burns to the throat or lungs.'
+      ],
+      twi: [
+        'Mmma onipa no hwee nnidi anaa nnnom (mpo nufusuo anaa nsuo) gye sɛ ɔdokta se yɛ saa.',
+        'Mmma no nnfe — eyi bɛtumi ahyɛ ne home kwan anaa ne home beaeɛ.'
+      ]
+    }
+  },
+  asthma: {
+    condition: 'Difficulty Breathing / Asthma (Ɔhome-teetee / Asthma)',
+    severity: 'critical',
+    call_immediately: true,
+    steps: {
+      en: [
+        'Help the person sit upright in a comfortable position. Do not let them lie down.',
+        'Help them use their emergency inhaler (usually blue, e.g., Salbutamol/Albuterol).',
+        'Keep them calm and encourage slow, steady breathing.',
+        'Loosen any tight clothing around their neck or chest.',
+        'If they do not have an inhaler, if it does not work, or if they struggle to speak, call 193 immediately.'
+      ],
+      twi: [
+        'Boa onipa no ma ɔntena fam pintinn. Mmma no nnda fam.',
+        'Boa no ma ɔmmfa ne home aduro (inhaler bibiriw, te sɛ Salbutamol).',
+        'Ma ne ho nyɛ komm na hyɛ no nkuran ma ɔnhome mmerɛw.',
+        'Yɛ ntar a amia ne kɔn anaa ne koko ho mmerɛw.',
+        'Sɛ onni aduro no bi, anaa sɛ anyɛ adwuma, anaa ɔretow home a, frɛ 193 ntɛm.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not leave the person alone.',
+        'Do not give them cold drinks, as this can worsen airway spasms.'
+      ],
+      twi: [
+        'Mngyae onipa no nkoaa.',
+        'Mmma no nsuo anaa nneɛma nwunu, eyi bɛtumi asɛe ne home kwan.'
+      ]
+    }
+  },
+  fever: {
+    condition: 'Fever / High Temp (Ahoo-hye / Fever)',
+    severity: 'moderate',
+    call_immediately: false,
+    steps: {
+      en: [
+        'Have the person rest in a cool, well-ventilated room.',
+        'Wipe their forehead, neck, and underarms with a clean cloth damp with lukewarm water (lukewarm sponging).',
+        'Give them plenty of water or oral rehydration fluids to prevent dehydration.',
+        'If appropriate, give over-the-counter fever reducers like Paracetamol. Avoid Aspirin for children.',
+        'Seek medical help if the fever is extremely high, lasts over 3 days, or is accompanied by a stiff neck.'
+      ],
+      twi: [
+        'Ma onipa no nhome wɔ beaeɛ a mframa bɔ mu yiye.',
+        'Fa ntoma ne nsuo mmerɛw (lukewarm) popo n’anim, ne kɔn, ne ne nwaha ase.',
+        'Ma no nsuo pii anaa ORS mma ne ho nnyɛ kɔntɔn.',
+        'Sɛ ɛbɛyɛ yiye a, ma no Paracetamol. Mmma mmofra Aspirin.',
+        'Kɔ ayaresabea ntɛm sɛ fever no kɔ soro dodo, anaa ɛkyɛ kyɛn nnansa.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not use cold water, ice, or alcohol rubs to cool the person, as this can cause shivering and raise core temperature.',
+        'Do not bundle them in heavy blankets.'
+      ],
+      twi: [
+        'Mmfa nsuo nwunu dodo, ice, anaa alcohol mpopoo ne ho, ɛbɛtumi ama ne ho awɔw na ama ahoo-hye no akɔ soro.',
+        'Mmfa mpopaho pii nkata ne ho.'
+      ]
+    }
+  },
+  head_injury: {
+    condition: 'Head Injury / Concussion (Atipira / Concussion)',
+    severity: 'critical',
+    call_immediately: true,
+    steps: {
+      en: [
+        'Keep the person completely still and prevent them from moving their head or neck.',
+        'If there is bleeding, apply direct pressure with a clean cloth, unless you suspect a skull fracture.',
+        'Apply a cold compress wrapped in a cloth to reduce swelling.',
+        'Monitor their alertness. Check if they are confused, vomiting, or losing consciousness.',
+        'Call 193 or go to the hospital immediately if they lost consciousness, are vomiting, or have blood/fluid draining from ears or nose.'
+      ],
+      twi: [
+        'Ma onipa no nyɛ komm na mma no nnwoso ne ti anaa ne kɔn.',
+        'Sɛ mogya retow a, mia so ntɛm fa ntoma a ho tew gye sɛ wugye di sɛ ne ti-dompe apae.',
+        'Fa ice nwunu a ɛwɔ ntoma mu gu so na swollen no anya akye.',
+        'Hwɛ sɛ n’adwene da ne ho. Hwɛ sɛ ɔrefe, n’ani so retow, anaa ɔretɔ sim.',
+        'Frɛ 193 anaa kɔ ayaresabea ntɛm sɛ ɔtɔɔ sim, ɔrefe, anaa mogya/nsuo firi ne nsa/asɔ mu pue.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not remove any objects stuck in the head wound.',
+        'Do not give them any medication or water until assessed by a professional.'
+      ],
+      twi: [
+        'Mmyi deɛ amia ne ti no mu.',
+        'Mmma no aduro anaa nsuo biara kɔsi sɛ dɔkta bɛhwɛ no.'
+      ]
+    }
+  },
+  headache: {
+    condition: 'Headache (Ti-Yadeɛ)',
+    severity: 'mild',
+    call_immediately: false,
+    steps: {
+      en: [
+        'Rest in a quiet, dark, and cool room.',
+        'Apply a cool compress or damp cloth to your forehead or the back of your neck.',
+        'Drink plenty of water to stay hydrated.',
+        'If appropriate, take mild over-the-counter pain relievers like Paracetamol.',
+        'Seek immediate medical care if the headache is sudden and extremely severe, or accompanied by fever, stiff neck, confusion, or difficulty speaking.'
+      ],
+      twi: [
+        'Home wɔ beaeɛ a ɛhɔ yɛ komm, sum, na mframa bɔ mu yiye.',
+        'Fa ntoma nwunu to w’anim anaa wo kɔn akyi.',
+        'Nom nsuo pii na w’ahonnhye anya ahoɔden.',
+        'Sɛ ɛbɛyɛ yiye a, gye Paracetamol na anya akye.',
+        'Kɔ ayaresabea ntɛm sɛ ti-yadeɛ no bae mprempren ara na ɛyɛ ya dodo, anaa fever, kɔn-akyini-mu-den, anaa adwene-futu ka ho.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not take medication on an empty stomach.',
+        'Do not ignore a sudden, severe headache (often called "the worst headache of your life").'
+      ],
+      twi: [
+        'Mmnom aduro biara wɔ kɔm mu.',
+        'Mmbom animtiaa ti-yadeɛ a ɛbae mpofirim na ɛyɛ ya pii.'
+      ]
+    }
+  },
+  trauma: {
+    condition: 'Physical Trauma / Accident (Asiane / Apira)',
+    severity: 'critical',
+    call_immediately: true,
+    steps: {
+      en: [
+        'Check for immediate dangers (e.g., traffic, fire, electricity) before approaching.',
+        'Call emergency services immediately (193).',
+        'If there is heavy bleeding, apply firm pressure with a clean cloth.',
+        'Do not move the injured person unless they are in immediate danger of further injury.',
+        'Keep the person calm and warm. Check their breathing regularly.'
+      ],
+      twi: [
+        'Hwɛ sɛ asiane biara nni beaeɛ hɔ (te sɛ kar foforo, ogya, anaa anyinam-nyane) ansa na woakɔ hɔ.',
+        'Frɛ ambulance ntɛm ara (193).',
+        'Sɛ mogya retow pii a, mia so pintinn fa ntoma a ho tew.',
+        'Mmsoso na mnyɛ onipa no ya gye sɛ asiane foforo bɛto no.',
+        'Ma ne ho nyɛ komm na kyekyere ne ho. Hwɛ ne home daa.'
+      ]
+    },
+    warnings: {
+      en: [
+        'Do not move anyone with suspected neck or spinal injury unless absolutely necessary.',
+        'Do not give them anything to eat or drink.'
+      ],
+      twi: [
+        'Mmsoso onipa a wugye di sɛ ne kɔn anaa n’akyi dompe apira gye sɛ ɛhia dodo.',
+        'Mmma no aduane anaa nsuo biara.'
+      ]
+    }
   }
 };
 
@@ -276,6 +462,43 @@ export function findOfflineFirstAid(text) {
   
   // Prioritize highly specific terms first
   
+  // Accident / Trauma / Crash
+  if (lower.includes('accident') || lower.includes('crash') || lower.includes('collision') || lower.includes('fall') || lower.includes('car') || lower.includes('motor') || lower.includes('asiane')) {
+    return OFFLINE_FIRST_AID.trauma;
+  }
+
+  // Headache
+  if (lower.includes('headache') || lower.includes('migraine') || lower.includes('ti-yadeɛ') || lower.includes('ti yadeɛ')) {
+    return OFFLINE_FIRST_AID.headache;
+  }
+
+  // Poisoning
+  if (lower.includes('poison') || lower.includes('chemical') || lower.includes('toxic') || lower.includes('swallowed') || lower.includes('aduro bɔne') || lower.includes('nom')) {
+    return OFFLINE_FIRST_AID.poisoning;
+  }
+
+  // Asthma / Breathing
+  if (lower.includes('asthma') || lower.includes('breathe') || lower.includes('breathing') || lower.includes('shortness') || lower.includes('inhaler') || lower.includes('home-teetee') || lower.includes('home')) {
+    // Only return choking if specifically choke-related, otherwise default to breathing/asthma if "breathe" is queried
+    if (lower.includes('chok') || lower.includes('throat') || lower.includes('swallow') || lower.includes('stuck')) {
+      return OFFLINE_FIRST_AID.choking;
+    }
+    return OFFLINE_FIRST_AID.asthma;
+  }
+
+  // Fever
+  if (lower.includes('fever') || lower.includes('temperature') || lower.includes('hot') || lower.includes('hoo-hye') || lower.includes('malaria')) {
+    if (lower.includes('burn') || lower.includes('fire') || lower.includes('ogya')) {
+      return OFFLINE_FIRST_AID.burns;
+    }
+    return OFFLINE_FIRST_AID.fever;
+  }
+
+  // Head Injury
+  if (lower.includes('head') || lower.includes('concussion') || lower.includes('brain') || lower.includes('skull') || lower.includes('atipira') || lower.includes('hit')) {
+    return OFFLINE_FIRST_AID.head_injury;
+  }
+
   // Snake Bite
   if (lower.includes('snake') || lower.includes('bite') || lower.includes('wɔ') || lower.includes('venom') || lower.includes('viper') || lower.includes('cobra')) {
     return OFFLINE_FIRST_AID.snake_bite;
@@ -287,7 +510,7 @@ export function findOfflineFirstAid(text) {
   }
   
   // Choking
-  if (lower.includes('chok') || lower.includes('airway') || lower.includes('home') || lower.includes('throat') || lower.includes('swallow') || lower.includes('gag') || lower.includes('block') || lower.includes('stuck')) {
+  if (lower.includes('chok') || lower.includes('airway') || lower.includes('throat') || lower.includes('swallow') || lower.includes('gag') || lower.includes('block') || lower.includes('stuck')) {
     return OFFLINE_FIRST_AID.choking;
   }
   
@@ -307,7 +530,7 @@ export function findOfflineFirstAid(text) {
   }
   
   // Burns
-  if (lower.includes('burn') || lower.includes('fire') || lower.includes('ogya') || lower.includes('hot') || lower.includes('scald') || lower.includes('boil') || lower.includes('acid') || lower.includes('steam')) {
+  if (lower.includes('burn') || lower.includes('fire') || lower.includes('ogya') || lower.includes('scald') || lower.includes('boil') || lower.includes('acid') || lower.includes('steam')) {
     return OFFLINE_FIRST_AID.burns;
   }
   

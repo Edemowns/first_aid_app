@@ -12,6 +12,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "^11.0.0",
     "axios": "^1.14.0",
     "expo": "~54.0.34",
     "expo-audio": "~1.1.1",

@@ -1,10 +1,92 @@
 // services/api.js
 // Backend API integration — FastAPI server
 import { Platform } from 'react-native';
+import { getConnectivityState, isApiReachable } from './connectivity';
+import { diagnoseOffline } from './offlineModels';
 
 
-//export const BASE_URL = "http://172.20.10.12:8000";
-export const BASE_URL ="https://first-aid-app-72im.onrender.com";
+export const BASE_URL = "http://172.20.10.12:8000";
+//export const BASE_URL ="https://first-aid-app-72im.onrender.com";
+
+
+// ─────────────────────────────────────────────
+// OFFLINE FALLBACK HANDLER
+// ─────────────────────────────────────────────
+
+/**
+ * Attempts API call with automatic offline fallback
+ * If offline, returns offline diagnosis
+ */
+export async function diagnoseEmergencyWithFallback(
+  description,
+  answers,
+  language = 'en',
+  imageBase64 = null,
+  mediaType = 'image/jpeg'
+) {
+  const { isOnline } = getConnectivityState();
+
+  // If we know we're offline, use local diagnosis immediately
+  if (isOnline === false) {
+    console.log('📱 Offline mode: Using local diagnosis engine');
+    return diagnoseOffline(description, language);
+  }
+
+  const apiReachable = await isApiReachable(BASE_URL);
+  if (!apiReachable) {
+    console.log('📡 Backend unreachable, using local diagnosis fallback');
+    return diagnoseOffline(description, language);
+  }
+
+  // Try online diagnosis first
+  try {
+    return await diagnoseEmergency(
+      description,
+      answers,
+      language,
+      imageBase64,
+      mediaType
+    );
+  } catch (error) {
+    console.warn('⚠️ Online diagnosis failed, falling back to offline:', error.message);
+    return diagnoseOffline(description, language);
+  }
+}
+
+/**
+ * Probe with offline fallback
+ */
+export async function probeEmergencyWithFallback(
+  description,
+  language = 'en',
+  imageBase64 = null,
+  mediaType = 'image/jpeg'
+) {
+  const { isOnline } = getConnectivityState();
+
+  if (isOnline === false) {
+    console.log('📱 Offline mode: Using local probe');
+    return diagnoseOffline(description, language);
+  }
+
+  const apiReachable = await isApiReachable(BASE_URL);
+  if (!apiReachable) {
+    console.log('📡 Backend unreachable, using local probe fallback');
+    return diagnoseOffline(description, language);
+  }
+
+  try {
+    return await probeEmergency(
+      description,
+      language,
+      imageBase64,
+      mediaType
+    );
+  } catch (error) {
+    console.warn('⚠️ Online probe failed, falling back to offline:', error.message);
+    return diagnoseOffline(description, language);
+  }
+}
 
 
 

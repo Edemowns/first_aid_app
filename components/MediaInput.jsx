@@ -9,6 +9,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { transcribeAudio } from '../services/api';
+import { useConnectivity } from '../services/connectivity';
 
 export default function MediaInput({
   language,       // 'en' | 'twi'
@@ -18,6 +19,7 @@ export default function MediaInput({
   onVoiceTranscribed, // (transcribedText) => void
   disabled,       // bool
 }) {
+  const { isOnline } = useConnectivity();
   const [isRecording,  setIsRecording]  = useState(false);
   const [recording,    setRecording]    = useState(null);
   const [transcribing, setTranscribing] = useState(false);
@@ -78,6 +80,15 @@ export default function MediaInput({
   };
 
   const showImageOptions = () => {
+    if (isOnline === false) {
+      Alert.alert(
+        language === 'twi' ? 'Nni Intanɛt (Offline)' : 'Internet Required',
+        language === 'twi'
+          ? 'Kamera anaa foto mmoa hwehwɛ intanɛt connection. Mesrɛ sɔ wo Wi-Fi anaa mobile data na wubetumi akɔ so.'
+          : 'Photo input requires an active internet connection. Please turn on your Wi-Fi or mobile data to use this feature.'
+      );
+      return;
+    }
     if (Platform.OS === 'web') {
       // On Web, React Native's Alert.alert is silent. Directly launch standard file/image selector.
       pickImage();
@@ -96,6 +107,15 @@ export default function MediaInput({
 
   // ── Voice ────────────────────────────────────────────────────────────────
   const startRecording = async () => {
+    if (isOnline === false) {
+      Alert.alert(
+        language === 'twi' ? 'Nni Intanɛt (Offline)' : 'Internet Required',
+        language === 'twi'
+          ? 'Kasa mmoa hwehwɛ intanɛt connection. Mesrɛ sɔ wo Wi-Fi anaa mobile data na wubetumi akɔ so.'
+          : 'Voice input and transcription require an active internet connection. Please turn on your Wi-Fi or mobile data to use this feature.'
+      );
+      return;
+    }
     try {
       if (Platform.OS === 'web') {
         // Web Audio Recording using standard browser MediaRecorder

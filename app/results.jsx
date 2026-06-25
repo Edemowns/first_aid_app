@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../constants/theme';
 import FollowUpScreen from '../components/FollowUpScreen';
 import { BASE_URL } from '../services/api';
+import { saveOrUpdateHistorySession } from '../services/history';
 
 // Use BASE_URL from services/api to keep backend host IP in sync
 const API_BASE_URL = BASE_URL; 
@@ -39,6 +40,7 @@ export default function ResultsScreen() {
 
   const originalText = params.originalText || '';
   const language = params.language || 'en';
+  const [sessionId] = useState(params.sessionId || `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`);
 
   // Fallback structural schema if navigation data is corrupted
   if (!initialDiagnosis) {
@@ -58,7 +60,30 @@ export default function ResultsScreen() {
   // Manage current state of diagnosis internally, letting follow-ups update steps/warnings
   const [currentDiagnosis, setCurrentDiagnosis] = useState(initialDiagnosis);
 
-  // Dispatch API Call to backend on follow-up submission
+  const saveSession = async (updates = {}) => {
+    try {
+      await saveOrUpdateHistorySession({
+        id: sessionId,
+        condition: currentDiagnosis.condition,
+        severity: currentDiagnosis.severity,
+        language,
+        original_text: originalText,
+        source: currentDiagnosis.source || 'online',
+        steps: currentDiagnosis.steps,
+        warnings: currentDiagnosis.warnings,
+        call_immediately: currentDiagnosis.call_immediately,
+        chat_feed: updates.chat_feed || [],
+        ...updates,
+      });
+    } catch (error) {
+      console.error('saveSession error:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    saveSession();
+  }, []);
+
   const handleFollowUpSubmit = async (message) => {
     try {
       const payload = {
@@ -93,6 +118,28 @@ export default function ResultsScreen() {
     }
   };
 
+  const handleSessionUpdate = async (update) => {
+    const updatedDiagnosis = {
+      ...currentDiagnosis,
+      steps: update.steps || currentDiagnosis.steps,
+      warnings: update.warnings || currentDiagnosis.warnings,
+      call_immediately: update.call_immediately !== undefined ? update.call_immediately : currentDiagnosis.call_immediately,
+    };
+    setCurrentDiagnosis(updatedDiagnosis);
+    await saveOrUpdateHistorySession({
+      id: sessionId,
+      condition: updatedDiagnosis.condition,
+      severity: updatedDiagnosis.severity,
+      language,
+      original_text: originalText,
+      source: updatedDiagnosis.source || 'online',
+      steps: updatedDiagnosis.steps,
+      warnings: updatedDiagnosis.warnings,
+      call_immediately: updatedDiagnosis.call_immediately,
+      chat_feed: update.chat_feed || [],
+    });
+  };
+
   const handleResetEmergency = () => {
     // Reset back to Home screen to start a new assessment
     router.replace('/');
@@ -105,7 +152,9 @@ export default function ResultsScreen() {
         originalText={originalText}
         probingAnswers={initialAnswers}
         language={language}
+        sessionId={sessionId}
         onFollowUpSubmit={handleFollowUpSubmit}
+        onSessionUpdate={handleSessionUpdate}
         onResetEmergency={handleResetEmergency}
       />
     </SafeAreaView>
