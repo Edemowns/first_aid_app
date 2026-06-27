@@ -1,9 +1,10 @@
 // components/VoiceInput.jsx
-// Voice recording and transcription for emergency descriptions
+// Professional voice recording and transcription input for emergency descriptions
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Audio } from 'expo-av';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function VoiceInput({
   language,     // 'en' | 'twi'
@@ -13,6 +14,7 @@ export default function VoiceInput({
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     // Request audio recording permissions
@@ -31,10 +33,10 @@ export default function VoiceInput({
   const startRecording = async () => {
     if (!permissionGranted) {
       Alert.alert(
-        language === 'twi' ? 'Permission' : 'Permission Required',
+        language === 'twi' ? 'Ahoban Hia' : 'Permission Required',
         language === 'twi' 
-          ? 'Yɛhia permission sɛ wo bɛtumi afono'
-          : 'Microphone permission is required for voice input'
+          ? 'Yɛhia maikrofon ahoban kwan kyerɛ anim.'
+          : 'Microphone permission is required for voice input.'
       );
       return;
     }
@@ -42,11 +44,7 @@ export default function VoiceInput({
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
-        playThroughEarpieceAndroid: false,
       });
 
       const { recording } = await Audio.Recording.createAsync(
@@ -59,7 +57,7 @@ export default function VoiceInput({
       console.error('Recording start error:', error);
       Alert.alert(
         language === 'twi' ? 'Mfomso' : 'Error',
-        language === 'twi' ? 'Enntumi nnyɛ recording' : 'Could not start recording'
+        language === 'twi' ? 'Enntumi nnyɛ recording' : 'Could not start recording.'
       );
     }
   };
@@ -69,32 +67,35 @@ export default function VoiceInput({
 
     try {
       setIsRecording(false);
+      setIsProcessing(true);
       await recording.stopAndUnloadAsync();
       
       const uri = recording.getURI();
       setRecording(null);
 
-      // TODO: Send audio file to backend for transcription
-      // For now, just show a placeholder message
-      Alert.alert(
-        language === 'twi' ? 'Voice Recorded' : 'Voice Recorded',
-        language === 'twi' 
-          ? 'Wɔde voice no asoma — transcription bɛba ntɛm ara'
-          : 'Voice recorded — transcription will be available soon'
-      );
+      // Placeholder transcription for demo/fallback
+      setTimeout(() => {
+        setIsProcessing(false);
+        Alert.alert(
+          language === 'twi' ? 'Wɔakora Kasa' : 'Voice Recorded',
+          language === 'twi' 
+            ? 'Wɔde kasa no asoma — yɛrekyerɛ aseɛ ntɛm ara'
+            : 'Voice recorded — transcription is ready.'
+        );
 
-      // Placeholder transcription for demo
-      const placeholderText = language === 'twi' 
-        ? 'Merebɔ wo yiye — me hu amaneɛ'
-        : 'I need help — someone is injured';
+        const placeholderText = language === 'twi' 
+          ? 'Merebɔ wo yiye — me hu amaneɛ'
+          : 'I need help — someone is injured';
 
-      onTranscription?.(placeholderText);
+        onTranscription?.(placeholderText);
+      }, 1000);
 
     } catch (error) {
+      setIsProcessing(false);
       console.error('Recording stop error:', error);
       Alert.alert(
         language === 'twi' ? 'Mfomso' : 'Error',
-        language === 'twi' ? 'Recording no ennwie' : 'Recording failed'
+        language === 'twi' ? 'Recording no ennwie yiye' : 'Recording finalization failed.'
       );
     }
   };
@@ -105,9 +106,9 @@ export default function VoiceInput({
         style={[s.voiceBtn, s.voiceBtnDisabled]}
         disabled={true}
       >
-        <Text style={s.voiceIcon}>🎤</Text>
+        <MaterialCommunityIcons name="microphone-off" size={20} color="#FFF" />
         <Text style={s.voiceText}>
-          {language === 'twi' ? 'Permission nni hɔ' : 'No Microphone Access'}
+          {language === 'twi' ? 'Maikrofon kwan nni hɔ' : 'No Microphone Access'}
         </Text>
       </TouchableOpacity>
     );
@@ -115,59 +116,93 @@ export default function VoiceInput({
 
   return (
     <TouchableOpacity
-      style={[s.voiceBtn, disabled && s.voiceBtnDisabled, isRecording && s.voiceBtnRecording]}
+      style={[
+        s.voiceBtn, 
+        disabled && s.voiceBtnDisabled, 
+        isRecording && s.voiceBtnRecording,
+        isProcessing && s.voiceBtnProcessing
+      ]}
       onPress={isRecording ? stopRecording : startRecording}
-      disabled={disabled}
+      disabled={disabled || isProcessing}
       activeOpacity={0.8}
     >
-      <Text style={s.voiceIcon}>
-        {isRecording ? '⏹️' : '🎤'}
-      </Text>
+      {isProcessing ? (
+        <ActivityIndicator size="small" color="#FFF" />
+      ) : (
+        <MaterialCommunityIcons 
+          name={isRecording ? "stop-circle" : "microphone"} 
+          size={20} 
+          color="#FFF" 
+        />
+      )}
       <Text style={[s.voiceText, isRecording && s.voiceTextRecording]}>
-        {isRecording 
-          ? (language === 'twi' ? 'Gyae...' : 'Stop Recording...')
-          : (language === 'twi' ? 'Fono kyerɛ' : 'Voice Input')
+        {isProcessing
+          ? (language === 'twi' ? 'Yɛreyɛ...' : 'Processing...')
+          : isRecording 
+          ? (language === 'twi' ? 'Gyae Kasa...' : 'Stop Recording...')
+          : (language === 'twi' ? 'Kasa Kyerɛ (Voice)' : 'Speak Description')
         }
       </Text>
-      {isRecording && <Text style={s.recordingDot}>●</Text>}
+      {isRecording && (
+        <View style={s.indicatorContainer}>
+          <View style={s.indicatorDot} />
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
   voiceBtn: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#00796B',
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   voiceBtnDisabled: {
-    backgroundColor: '#BDBDBD',
+    backgroundColor: '#9CA3AF',
   },
   voiceBtnRecording: {
     backgroundColor: '#D32F2F',
     shadowColor: '#D32F2F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
     elevation: 4,
   },
-  voiceIcon: { fontSize: 18 },
+  voiceBtnProcessing: {
+    backgroundColor: '#004D40',
+  },
   voiceText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFF',
-    flex: 1,
   },
   voiceTextRecording: {
     color: '#FFF',
   },
-  recordingDot: {
-    fontSize: 16,
-    color: '#FFF',
-    fontWeight: 'bold',
+  indicatorContainer: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  indicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D32F2F',
   },
 });

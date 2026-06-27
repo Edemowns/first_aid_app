@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getCurrentUserProfile, getUserHistory, clearCurrentUserProfile } from '../services/history';
 
 export default function HistoryScreen() {
@@ -48,7 +49,11 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
+              <MaterialCommunityIcons name="arrow-left" size={18} color="#1A1A1A" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
             <Text style={styles.title}>Saved Emergency Logs</Text>
             <Text style={styles.subtitle}>
               {user ? `Signed in as ${user.name}` : 'Sign in to keep your history organized.'}
@@ -96,6 +101,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
     marginBottom: 16,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
   },
   title: {
     fontSize: 24,

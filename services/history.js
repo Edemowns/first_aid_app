@@ -30,6 +30,7 @@ export async function setCurrentUserProfile(profile) {
       provider: 'gmail',
       name: profile?.name || profile?.email || 'Anonymous',
       email: profile?.email?.trim().toLowerCase() || null,
+      password: profile?.password ?? null,
       lastLogin: Date.now(),
     };
     await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(normalized));

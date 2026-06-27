@@ -160,10 +160,16 @@ export default function DiagnosisScreen({
 
   const normalizeWarning = (warning) => {
     const trimmed = warning.trim();
-    if (/^(If|When|Avoid|Do not|Never)\b/i.test(trimmed)) {
+    // In Twi, do not apply English prefixes
+    if (language === 'twi') {
       return trimmed;
     }
-    return `If ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+    // If it already starts with a warning/conditional prefix, keep it as is
+    if (/^(If|When|Avoid|Do not|Don't|Never)\b/i.test(trimmed)) {
+      return trimmed;
+    }
+    // Since the section is "What Not To Do", we should keep negative guidelines clean and as is
+    return trimmed;
   };
 
   return (
@@ -266,13 +272,9 @@ export default function DiagnosisScreen({
         {warnings.length > 0 && (
           <View style={[s.section, s.warningSection]}>
             <Text style={[s.sectionHeader, s.warningHeader]}>
-              {language === 'twi' ? 'Nsɛm a ɛho hia:' : 'Warning Signs:'}
+              {language === 'twi' ? 'Nsɛm a ɛho hia:' : 'What  Not To Do:'}
             </Text>
-            <Text style={s.warningSubText}>
-              {language === 'twi'
-                ? 'Sɛ eyi bi si a, hwehwɛ mmoa ntɛm.'
-                : 'If any of these happen, seek medical help.'}
-            </Text>
+            
             {warnings.map((warning, idx) => (
               <View key={idx} style={s.warningRow}>
                 <Ionicons name="alert-circle" size={18} color="#C62828" style={{ marginTop: 2 }} />

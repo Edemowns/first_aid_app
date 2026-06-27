@@ -1,5 +1,5 @@
 // components/MediaInput.jsx
-// Handles image (camera/gallery) and voice recording input
+// Handles image (camera/gallery) and voice recording input with a professional, cohesive UI
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { transcribeAudio } from '../services/api';
 import { useConnectivity } from '../services/connectivity';
 
@@ -90,15 +91,14 @@ export default function MediaInput({
       return;
     }
     if (Platform.OS === 'web') {
-      // On Web, React Native's Alert.alert is silent. Directly launch standard file/image selector.
       pickImage();
     } else {
       Alert.alert(
-        language === 'twi' ? 'Fa Foto' : 'Add Photo',
-        language === 'twi' ? 'Paw nhyehyɛe bi' : 'Choose an option',
+        language === 'twi' ? 'Fa Foto ka ho' : 'Add Photo / Image',
+        language === 'twi' ? 'Paw nhyehyɛe bi firi ha' : 'Choose a photo source',
         [
-          { text: language === 'twi' ? 'Twe Foto' : 'Take Photo',          onPress: takePhoto },
-          { text: language === 'twi' ? 'Paw firi Galerie' : 'From Gallery', onPress: pickImage },
+          { text: language === 'twi' ? 'Twe Foto (Kamera)' : 'Take Photo (Camera)', onPress: takePhoto },
+          { text: language === 'twi' ? 'Paw firi Galerie' : 'Choose from Gallery', onPress: pickImage },
           { text: language === 'twi' ? 'Gyae' : 'Cancel', style: 'cancel' },
         ]
       );
@@ -118,7 +118,6 @@ export default function MediaInput({
     }
     try {
       if (Platform.OS === 'web') {
-        // Web Audio Recording using standard browser MediaRecorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         webAudioChunksRef.current = [];
         const mediaRecorder = new MediaRecorder(stream);
@@ -133,7 +132,6 @@ export default function MediaInput({
         webMediaRecorderRef.current = mediaRecorder;
         setIsRecording(true);
       } else {
-        // Native Audio Recording (expo-av)
         const { granted } = await Audio.requestPermissionsAsync();
         if (!granted) {
           Alert.alert(
@@ -174,8 +172,6 @@ export default function MediaInput({
           webMediaRecorderRef.current.onstop = () => {
             const audioBlob = new Blob(webAudioChunksRef.current, { type: 'audio/wav' });
             const blobUrl = URL.createObjectURL(audioBlob);
-            
-            // Release the microphone stream
             webMediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
             resolve({ blobUrl });
           };
@@ -210,9 +206,9 @@ export default function MediaInput({
 
       setTranscribing(false);
       Alert.alert(
-        language === 'twi' ? 'Twi ASR' : 'Voice Recorded',
+        language === 'twi' ? 'Wɔakora wo kasa' : 'Voice Recorded',
         language === 'twi'
-          ? 'Wɔakora wo kasa. Transcription no aba.'
+          ? 'Wɔakora wo kasa. Transcription no aba fɛfɛɛfɛ.'
           : 'Voice recorded and transcribed successfully.'
       );
     } catch (error) {
@@ -229,21 +225,24 @@ export default function MediaInput({
 
   return (
     <View style={s.container}>
+      {/* Header Area with Label & Voice Language toggle */}
+      <View style={s.headerRow}>
+        <View style={s.labelContainer}>
+          <Text style={s.label}>
+            {language === 'twi' ? 'Media Mmoa' : 'Additional Media'}
+          </Text>
+          <Text style={s.subLabel}>
+            {language === 'twi' ? 'Fa foto anaa kasa mmoa ka ho' : 'Add photo or voice for better AI context'}
+          </Text>
+        </View>
 
-      {/* Label */}
-      <Text style={s.label}>
-        {language === 'twi' ? 'Fa media ka ho (optional):' : 'Add media (optional):'}
-      </Text>
-
-      {/* Voice language toggle */}
-      <View style={s.languageRow}>
-        <Text style={s.languageLabel}>
-          {language === 'twi' ? 'Kasamu:' : 'Voice language:'}
-        </Text>
+        {/* Voice language toggle */}
         <View style={s.langButtons}>
           <TouchableOpacity
             style={[s.langBtn, voiceLanguage === 'en' && s.langBtnSelected]}
             onPress={() => setVoiceLanguage('en')}
+            accessibilityRole="button"
+            accessibilityLabel="Select English voice language"
           >
             <Text style={[s.langBtnText, voiceLanguage === 'en' && s.langBtnTextSelected]}>
               EN
@@ -252,6 +251,8 @@ export default function MediaInput({
           <TouchableOpacity
             style={[s.langBtn, voiceLanguage === 'twi' && s.langBtnSelected]}
             onPress={() => setVoiceLanguage('twi')}
+            accessibilityRole="button"
+            accessibilityLabel="Select Twi voice language"
           >
             <Text style={[s.langBtnText, voiceLanguage === 'twi' && s.langBtnTextSelected]}>
               TW
@@ -260,22 +261,36 @@ export default function MediaInput({
         </View>
       </View>
 
-      {/* Buttons row */}
+      {/* Primary Buttons Layout */}
       <View style={s.btnRow}>
-
         {/* Photo button */}
         <TouchableOpacity
           style={[s.mediaBtn, image && s.mediaBtnActive]}
           onPress={showImageOptions}
           disabled={disabled}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={image ? "Change selected image" : "Add photo"}
         >
-          <Text style={s.mediaBtnIcon}>📷</Text>
-          <Text style={[s.mediaBtnText, image && s.mediaBtnTextActive]}>
-            {image
-              ? (language === 'twi' ? 'Foto wɔ hɔ' : 'Photo added')
-              : (language === 'twi' ? 'Fa Foto' : 'Add Photo')}
-          </Text>
+          <View style={[s.iconWrapper, image && s.iconWrapperActive]}>
+            <MaterialCommunityIcons
+              name={image ? "camera-check" : "camera-plus"}
+              size={20}
+              color={image ? "#1B5E20" : "#4B5563"}
+            />
+          </View>
+          <View style={s.btnTextContainer}>
+            <Text style={[s.mediaBtnTitle, image && s.mediaBtnTitleActive]}>
+              {image
+                ? (language === 'twi' ? 'Foto Wɔ Ho' : 'Photo Attached')
+                : (language === 'twi' ? 'Twe Foto' : 'Take/Add Photo')}
+            </Text>
+            <Text style={s.mediaBtnSubtitle}>
+              {image
+                ? (language === 'twi' ? 'Sakra mfonini yi' : 'Tap to replace image')
+                : (language === 'twi' ? 'Firi kamera/galerie' : 'Camera or gallery')}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         {/* Voice button */}
@@ -283,153 +298,341 @@ export default function MediaInput({
           style={[s.mediaBtn, isRecording && s.mediaBtnRecording]}
           onPress={isRecording ? stopRecording : startRecording}
           disabled={disabled || transcribing}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={isRecording ? "Stop voice recording" : "Record voice description"}
         >
-          {transcribing ? (
-            <ActivityIndicator size="small" color="#D32F2F" />
-          ) : (
-            <Text style={s.mediaBtnIcon}>{isRecording ? '⏹' : '🎙'}</Text>
-          )}
-          <Text style={[s.mediaBtnText, isRecording && s.mediaBtnTextRecording]}>
-            {transcribing
-              ? (language === 'twi' ? 'Tietie...' : 'Processing...')
-              : isRecording
-              ? (language === 'twi' ? 'Gyae' : 'Stop')
-              : (language === 'twi' ? 'Kasa (Twi)' : 'Speak')
-            }
-          </Text>
+          <View style={[
+            s.iconWrapper, 
+            isRecording && s.iconWrapperRecording,
+            transcribing && s.iconWrapperTranscribing
+          ]}>
+            {transcribing ? (
+              <ActivityIndicator size="small" color="#00796B" />
+            ) : (
+              <MaterialCommunityIcons
+                name={isRecording ? "stop-circle" : "microphone"}
+                size={22}
+                color={isRecording ? "#C62828" : "#4B5563"}
+              />
+            )}
+          </View>
+          <View style={s.btnTextContainer}>
+            <Text style={[
+              s.mediaBtnTitle, 
+              isRecording && s.mediaBtnTitleRecording,
+              transcribing && s.mediaBtnTitleTranscribing
+            ]}>
+              {transcribing
+                ? (language === 'twi' ? 'Yɛrekyerɛ...' : 'Processing...')
+                : isRecording
+                ? (language === 'twi' ? 'Gyae Kasa' : 'Stop Recording')
+                : (language === 'twi' ? 'Kasa Kyerɛ' : 'Voice Input')
+              }
+            </Text>
+            <Text style={s.mediaBtnSubtitle}>
+              {transcribing
+                ? (language === 'twi' ? 'Kasa rekɔ kyerɛwee mu' : 'Transcribing voice...')
+                : isRecording
+                ? (language === 'twi' ? 'Hwie gu mprempren' : 'Tap to stop')
+                : (language === 'twi' ? 'Kasa wɔ Twi/English' : 'Speak description')}
+            </Text>
+          </View>
         </TouchableOpacity>
-
       </View>
 
-      {/* Recording indicator */}
+      {/* Recording status banner */}
       {isRecording && (
         <View style={s.recordingBar}>
-          <View style={s.recordingDot} />
+          <View style={s.recordingIndicatorContainer}>
+            <View style={s.recordingDot} />
+            <View style={[s.recordingDotPulse, { transform: [{ scale: 1.3 }] }]} />
+          </View>
           <Text style={s.recordingText}>
             {language === 'twi'
-              ? 'Wɔrekɔrd — pɛ "Gyae" wɔ awieeɛ'
-              : 'Recording — tap Stop when finished'}
+              ? 'Wɔrekɔrd kasa — kɔ so kasa na sɔ "Gyae Kasa" so'
+              : 'Microphone active — describe the case clearly, then tap Stop'}
           </Text>
         </View>
       )}
 
-      {/* Image preview */}
+      {/* Image preview with elegant floating overlays */}
       {image && (
         <View style={s.preview}>
           <Image source={{ uri: image.uri }} style={s.previewImg} />
-          <View style={s.previewInfo}>
-            <Text style={s.previewOk}>
-              ✅ {language === 'twi' ? 'AI bɛhwɛ foto no' : 'AI will analyse this image'}
-            </Text>
-            <TouchableOpacity onPress={() => onImageChange(null)}>
-              <Text style={s.previewRemove}>
-                ✕ {language === 'twi' ? 'Yi foto' : 'Remove'}
+          <View style={s.previewOverlay}>
+            <View style={s.previewBadge}>
+              <MaterialCommunityIcons name="check-circle" size={14} color="#FFF" />
+              <Text style={s.previewBadgeText}>
+                {language === 'twi' ? 'AI bɛhunu mfonini yi' : 'AI will analyze photo'}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={s.previewRemoveBtn}
+              onPress={() => onImageChange(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Remove photo"
+            >
+              <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+              <Text style={s.previewRemoveText}>
+                {language === 'twi' ? 'Yi Fi Ho' : 'Remove'}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
-
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { gap: 8 },
-
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  btnRow: { flexDirection: 'row', gap: 10 },
-
-  mediaBtn: {
-    flex: 1,
-    minHeight: 52,
+  container: {
     backgroundColor: '#FFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    marginVertical: 4,
+    gap: 1,
   },
-  mediaBtnActive:    { borderColor: '#2E7D32', backgroundColor: '#E8F5E9' },
-  mediaBtnRecording: { borderColor: '#D32F2F', backgroundColor: '#FFEBEE' },
-  mediaBtnIcon: { fontSize: 18 },
-  mediaBtnText: { fontSize: 13, fontWeight: '600', color: '#555' },
-  mediaBtnTextActive:    { color: '#2E7D32' },
-  mediaBtnTextRecording: { color: '#D32F2F' },
 
-  languageRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingBottom: 10,
   },
-  languageLabel: {
-    fontSize: 12,
+
+  labelContainer: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  label: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#1F2937',
+    letterSpacing: -0.1,
   },
+
+  subLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+
   langButtons: {
     flexDirection: 'row',
-    gap: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 2,
   },
+
   langBtn: {
-    minWidth: 56,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#BDBDBD',
-    backgroundColor: '#FFF',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   langBtnSelected: {
-    backgroundColor: '#2196F3',
-    borderColor: '#1976D2',
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
+
   langBtnText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#424242',
+    color: '#9CA3AF',
   },
+
   langBtnTextSelected: {
-    color: '#FFF',
+    color: '#00796B',
+  },
+
+  btnRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  mediaBtn: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 0,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: -5,
+  },
+
+  mediaBtnActive: {
+    borderColor: '#81C784',
+    backgroundColor: '#E8F5E9',
+  },
+
+  mediaBtnRecording: {
+    borderColor: '#EF5350',
+    backgroundColor: '#FFEBEE',
+  },
+
+  iconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  iconWrapperActive: {
+    backgroundColor: '#C8E6C9',
+  },
+
+  iconWrapperRecording: {
+    backgroundColor: '#FFCDD2',
+  },
+
+  iconWrapperTranscribing: {
+    backgroundColor: '#B2DFDB',
+  },
+
+  btnTextContainer: {
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+
+  mediaBtnTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+
+  mediaBtnTitleActive: {
+    color: '#2E7D32',
+  },
+
+  mediaBtnTitleRecording: {
+    color: '#C62828',
+  },
+
+  mediaBtnTitleTranscribing: {
+    color: '#004D40',
+  },
+
+  mediaBtnSubtitle: {
+    fontSize: 10,
+    color: '#6B7280',
   },
 
   recordingBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     backgroundColor: '#FFEBEE',
     borderRadius: 10,
-    padding: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
   },
+
+  recordingIndicatorContainer: {
+    width: 12,
+    height: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   recordingDot: {
-    width: 10, height: 10, borderRadius: 5,
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#D32F2F',
+    zIndex: 2,
   },
-  recordingText: { fontSize: 12, color: '#C62828', fontWeight: '500' },
+
+  recordingDotPulse: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(211, 47, 47, 0.4)',
+  },
+
+  recordingText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#C62828',
+    fontWeight: '600',
+    lineHeight: 15,
+  },
 
   preview: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    position: 'relative',
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    marginTop: 2,
   },
-  previewImg:    { width: '100%', height: 150, resizeMode: 'cover' },
-  previewInfo:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10 },
-  previewOk:     { fontSize: 12, color: '#2E7D32', fontWeight: '600' },
-  previewRemove: { fontSize: 12, color: '#D32F2F', fontWeight: '600' },
+
+  previewImg: {
+    width: '100%',
+    height: 160,
+    resizeMode: 'cover',
+  },
+
+  previewOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+
+  previewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  previewBadgeText: {
+    fontSize: 11,
+    color: '#FFF',
+    fontWeight: '600',
+  },
+
+  previewRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D32F2F',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    gap: 4,
+  },
+
+  previewRemoveText: {
+    fontSize: 11,
+    color: '#FFF',
+    fontWeight: '700',
+  },
 });

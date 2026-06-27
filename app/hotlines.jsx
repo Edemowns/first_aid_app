@@ -7,16 +7,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, radius, typography } from '../constants/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const HOTLINES = [
-  { id: 1, name: 'National Ambulance Service', nameTwi: 'Ayaresabea Kar',         description: 'Emergency medical response',    category: 'Medical',   phone: '193',           availability: '24/7', icon: '🚑', color: '#D32F2F' },
-  { id: 2, name: 'Ghana Police Emergency',      nameTwi: 'Polisifo',               description: 'Police emergency response',     category: 'Police',    phone: '191',           availability: '24/7', icon: '🚔', color: '#1976D2' },
-  { id: 3, name: 'Ghana Fire Service',          nameTwi: 'Ogyatɔfo',               description: 'Fire and rescue services',      category: 'Fire',      phone: '192',           availability: '24/7', icon: '🚒', color: '#F57C00' },
-  { id: 4, name: 'Korle Bu Hospital',           nameTwi: 'Korle Bu Yadeɛhaw',      description: 'Major teaching hospital',       category: 'Hospital',  phone: '0302-674-191',  availability: '24/7', icon: '🏥', color: '#D32F2F' },
-  { id: 5, name: '37 Military Hospital',        nameTwi: '37 Asrafohaw',           description: 'Emergency medical care',        category: 'Hospital',  phone: '0302-776-111',  availability: '24/7', icon: '🏥', color: '#D32F2F' },
-  { id: 6, name: 'NADMO',                       nameTwi: 'Amanehunu Dwumadibea',   description: 'National Disaster Management',  category: 'Disaster',  phone: '0299-203-993',  availability: '24/7', icon: '⚠️', color: '#F57C00' },
-  { id: 7, name: 'Ghana Red Cross',             nameTwi: 'Ghana Red Cross',        description: 'Humanitarian emergency aid',    category: 'Medical',   phone: '0302-662-877',  availability: '24/7', icon: '🏥', color: '#D32F2F' },
-  { id: 8, name: 'Poison Control Center',       nameTwi: 'Dɛdɛw Tumi',            description: 'Poisoning emergencies',         category: 'Medical',   phone: '0302-665-401',  availability: '24/7', icon: '☠️', color: '#D32F2F' },
+  { id: 1, name: 'National Ambulance Service', nameTwi: 'Ayaresabea Kar',         description: 'Emergency medical response',    category: 'Medical',   phone: '193',           availability: '24/7', icon: 'ambulance', color: '#D32F2F' },
+  { id: 2, name: 'Ghana Police Emergency',      nameTwi: 'Polisifo',               description: 'Police emergency response',     category: 'Police',    phone: '191',           availability: '24/7', icon: 'shield-account', color: '#1976D2' },
+  { id: 3, name: 'Ghana Fire Service',          nameTwi: 'Ogyatɔfo',               description: 'Fire and rescue services',      category: 'Fire',      phone: '192',           availability: '24/7', icon: 'fire-truck', color: '#F57C00' },
+  { id: 4, name: 'Korle Bu Hospital',           nameTwi: 'Korle Bu Yadeɛhaw',      description: 'Major teaching hospital',       category: 'Hospital',  phone: '0302-674-191',  availability: '24/7', icon: 'hospital-building', color: '#D32F2F' },
+  { id: 5, name: '37 Military Hospital',        nameTwi: '37 Asrafohaw',           description: 'Emergency medical care',        category: 'Hospital',  phone: '0302-776-111',  availability: '24/7', icon: 'hospital-building', color: '#D32F2F' },
+  { id: 6, name: 'NADMO',                       nameTwi: 'Amanehunu Dwumadibea',   description: 'National Disaster Management',  category: 'Disaster',  phone: '0299-203-993',  availability: '24/7', icon: 'alert', color: '#F57C00' },
+  { id: 7, name: 'Ghana Red Cross',             nameTwi: 'Ghana Red Cross',        description: 'Humanitarian emergency aid',    category: 'Medical',   phone: '0302-662-877',  availability: '24/7', icon: 'medical-bag', color: '#D32F2F' },
+  { id: 8, name: 'Poison Control Center',       nameTwi: 'Dɛdɛw Tumi',            description: 'Poisoning emergencies',         category: 'Medical',   phone: '0302-665-401',  availability: '24/7', icon: 'skull-crossbones', color: '#D32F2F' },
 ];
 
 const CATEGORIES = ['All', 'Medical', 'Police', 'Fire', 'Hospital', 'Disaster'];
@@ -49,8 +50,9 @@ export default function HotlinesScreen() {
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
         {/* Back button row */}
               <View style={s.headerRow}>
-                <TouchableOpacity onPress={() => router.back()} style={s.backButton}>
-                  <Text style={s.backButtonText}>← Back</Text>
+                <TouchableOpacity onPress={() => router.back()} style={[s.backButton, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                  <MaterialCommunityIcons name="arrow-left" size={16} color={colors.textPrimary} />
+                  <Text style={s.backButtonText}>Back</Text>
                 </TouchableOpacity>
               </View>
 
@@ -77,7 +79,10 @@ export default function HotlinesScreen() {
               <Text style={[s.langOptionText, language === 'twi' && s.langOptionTextActive]}>TWI</Text>
             </TouchableOpacity>
           </View>
-          <Text style={s.locationText}>📍 Ghana</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialCommunityIcons name="map-marker" size={16} color="#555" />
+            <Text style={s.locationText}>Ghana</Text>
+          </View>
         </View>
 
         {/* Category chips */}
@@ -97,8 +102,8 @@ export default function HotlinesScreen() {
         {filtered.map(h => (
           <View key={h.id} style={s.card}>
             <View style={s.cardLeft}>
-              <View style={[s.cardIconBox, { backgroundColor: h.color + '18' }]}>
-                <Text style={{ fontSize: 22 }}>{h.icon}</Text>
+              <View style={[s.cardIconBox, { backgroundColor: h.color + '12' }]}>
+                <MaterialCommunityIcons name={h.icon} size={24} color={h.color} />
               </View>
               <View style={s.cardInfo}>
                 <Text style={s.cardName}>{language === 'twi' && h.nameTwi ? h.nameTwi : h.name}</Text>
@@ -116,7 +121,7 @@ export default function HotlinesScreen() {
               onPress={() => handleCall(h.phone, language === 'twi' && h.nameTwi ? h.nameTwi : h.name)}
               activeOpacity={0.85}
             >
-              <Text style={s.callBtnIcon}>📞</Text>
+              <MaterialCommunityIcons name="phone" size={16} color="#FFF" style={{ marginBottom: 2 }} />
               <Text style={s.callBtnNumber}>{h.phone}</Text>
               <Text style={s.callBtnLabel}>{language === 'twi' ? 'FRƐ' : 'CALL'}</Text>
             </TouchableOpacity>

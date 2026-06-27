@@ -1,9 +1,10 @@
 // app/index.jsx — Home Screen converted from Figma Make to React Native
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, Alert, Keyboard, StatusBar,
+  Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,9 +16,6 @@ import { getCurrentLocation } from '../services/location';
 import VoiceInput from '../components/VoiceInput';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { findOfflineFirstAid } from '../constants/firstaid';
-import { diagnoseOffline } from '../services/offlineModels';
-import ConnectivityBanner from '../components/ConnectivityBanner';
-import { useConnectivity, checkConnectivity, getConnectivityState } from '../services/connectivity';
 
 let useSpeechRecognition;
 try {
@@ -38,8 +36,6 @@ try {
     reset: () => {},
   });
 }
-
-let globalHasShownOfflineAlert = false;
 
 const SCENARIOS = [
   
@@ -98,8 +94,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { isOnline, loading: isConnectivityLoading } = useConnectivity();
-
   const [inputText, setInputText]   = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [language, setLanguage]     = useState('en');
@@ -108,49 +102,28 @@ export default function HomeScreen() {
   const [stage,     setStage]     = useState('input'); // 'input' | 'probing'
   const [probeData, setProbeData] = useState(null);    // { questions, summary }
   const [pressedScenario, setPressedScenario] = useState(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const scrollRef = useRef(null);
   const { isRecognitionAvailable, start, stop, transcript, reset } = useSpeechRecognition();
   const [isRecording, setIsRecording] = useState(false);
-
-  // Setup periodic connectivity checks every 5 seconds to know offline status frequently
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      await checkConnectivity();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Show immediate alert to offline users upon startup or going offline
-  useEffect(() => {
-    if (!isConnectivityLoading && isOnline === false && !globalHasShownOfflineAlert) {
-      globalHasShownOfflineAlert = true;
-      Alert.alert(
-        language === 'twi' ? 'Wunni Internet (Offline)' : 'No Internet Connection',
-        language === 'twi'
-          ? 'Wunni internet mprempren. Afã horow te sɛ "voice input", "photo input" anaa "online AI diagnosis" hwehwɛ internet pɛpɛɛpɛ.\n\nMesrɛ sɔ wo data anaa Wi-Fi hwɛ bio anaa paw "Offline Mode" kɔ so nya mmoa.'
-          : 'You are currently offline. Online features like voice/speech input, photo/camera input, and AI-powered real-time diagnosis require internet access.\n\nPlease turn on your mobile data or Wi-Fi, or proceed with preloaded offline first-aid features.',
-        [
-          {
-            text: language === 'twi' ? 'Sɔ Hwɛ Bio' : 'Retry Connection',
-            onPress: async () => {
-              globalHasShownOfflineAlert = false; // allow alert again if still offline
-              await checkConnectivity();
-            }
-          },
-          {
-            text: language === 'twi' ? 'Kɔ So Offline' : 'Use Offline Mode',
-            style: 'cancel'
-          }
-        ],
-        { cancelable: true }
-      );
-    } else if (isOnline === true) {
-      globalHasShownOfflineAlert = false;
-    }
-  }, [isOnline, isConnectivityLoading, language]);
 
   useEffect(() => {
     AsyncStorage.getItem('onboarded').then(v => { if (!v) router.replace('/onboarding'); });
     AsyncStorage.getItem('language').then(l => { if (l) setLanguage(l); });
+  }, []);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardOffset(event.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardOffset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -218,113 +191,135 @@ export default function HomeScreen() {
   };
 
   // ── Stage 1: send description → get probing questions ───────────────────
-  const handleDescribe = async (overrideText) => {
-    const query = (overrideText || inputText).trim();
+    const handleDescribe = async (overrideText) => {
+  const query = (overrideText || inputText).trim();
 
-    // ✅ Allow either text OR image
-    const hasText = query.length > 0;
-    const hasImage = !!image?.base64;
+  // ✅ Allow either text OR image
+  const hasText = query.length > 0;
+  const hasImage = !!image?.base64;
 
-    // ❌ Neither text nor image provided
-    if (!hasText && !hasImage) {
-      Alert.alert(
-        language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
-        language === 'twi'
-          ? 'Kyerɛ asɛm no anaa fa foto ka ho.'
-          : 'Type what happened or upload a photo.'
-      );
-      return;
-    }
+  // ❌ Neither text nor image provided
+  if (!hasText && !hasImage) {
+    Alert.alert(
+      language === 'twi' ? 'Kyerɛ deɛ asi ho' : 'Describe the emergency',
+      language === 'twi'
+        ? 'Kyerɛ asɛm no anaa fa foto ka ho.'
+        : 'Type what happened or upload a photo.'
+    );
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    // Immediate offline execution to bypass network delay/alert completely
-    if (isOnline === false) {
-      console.log('[Frontend] Device is offline, using offline models directly.');
-      const offlineResult = diagnoseOffline(query, language);
-      const formattedResult = {
-        ...offlineResult,
-        is_offline: true,
-      };
+  try {
 
-      router.push({
-        pathname: '/results',
-        params: {
-          data: JSON.stringify(formattedResult),
-          language,
-          originalText: query,
-        },
-      });
-      setLoading(false);
-      return;
-    }
+    // ✅ Send text + image to backend
+    const result = await probeEmergency(
+      hasText ? query : '',
+      language,
+      image?.base64 || null,
+      image?.mediaType || 'image/jpeg'
+    );
 
-    try {
-      // ✅ Send text + image to backend
-      const result = await probeEmergency(
-        hasText ? query : '',
-        language,
-        image?.base64 || null,
-        image?.mediaType || 'image/jpeg'
-      );
+    console.log('[Frontend API Response]:', JSON.stringify(result, null, 2));
 
-      console.log('[Frontend API Response]:', JSON.stringify(result, null, 2));
-
-      // ✅ AI wants follow-up probing questions
-      if (result && result.stage === 'probing' && result.questions && result.questions.length > 0) {
-        console.log('[Frontend] Entering probing stage with', result.questions.length, 'questions');
-        
-        const transformedQuestions = result.questions.map((q, i) => ({
-          id: q.id || `q${i + 1}`,
-          text: q.text || q.question || '',
-          type: q.type || 'single_choice',
-          options: q.options || [],
-        }));
-
-        setProbeData({
-          questions: transformedQuestions,
-          summary: result.summary,
-        });
-
-        setStage('probing');
-        console.log('[Frontend] Stage state set to probing successfully.');
-
-      } else {
-        console.log('[Frontend] Direct diagnosis result returned.');
-
-        // ✅ Direct diagnosis / result
-        router.push({
-          pathname: '/results',
-          params: {
-            data: JSON.stringify(result),
-            language,
-          },
-        });
-
-      }
-
-    } catch (err) {
-      console.error('handleDescribe error (falling back offline):', err);
+    // ✅ AI wants follow-up probing questions
+    if (result && result.stage === 'probing' && result.questions && result.questions.length > 0) {
+      console.log('[Frontend] Entering probing stage with', result.questions.length, 'questions');
       
-      const offlineResult = diagnoseOffline(query, language);
-      const formattedResult = {
-        ...offlineResult,
-        is_offline: true,
-      };
+      const transformedQuestions = result.questions.map((q, i) => ({
+        id: q.id || `q${i + 1}`,
+        text: q.text || q.question || '',
+        type: q.type || 'single_choice',
+        options: q.options || [],
+      }));
 
+      setProbeData({
+        questions: transformedQuestions,
+        summary: result.summary,
+      });
+
+      setStage('probing');
+      console.log('[Frontend] Stage state set to probing successfully.');
+
+    } else {
+      console.log('[Frontend] Direct diagnosis result returned.');
+
+      // ✅ Direct diagnosis / result
       router.push({
         pathname: '/results',
         params: {
-          data: JSON.stringify(formattedResult),
+          data: JSON.stringify(result),
           language,
-          originalText: query,
         },
       });
 
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } catch (err) {
+
+    console.error('handleDescribe error (falling back offline):', err);
+    
+    // Attempt local offline matching for Recommendations 1 & 2
+    const offlineGuide = findOfflineFirstAid(query);
+    const formattedResult = offlineGuide ? {
+      condition: offlineGuide.condition,
+      severity: offlineGuide.severity,
+      steps: language === 'twi' ? offlineGuide.steps.twi : offlineGuide.steps.en,
+      warnings: language === 'twi' ? offlineGuide.warnings.twi : offlineGuide.warnings.en,
+      call_immediately: offlineGuide.call_immediately,
+      is_offline: true,
+    } : {
+      condition: language === 'twi' ? 'Asiane Titiriw (Offline)' : 'General Emergency (Offline)',
+      severity: 'critical',
+      steps: language === 'twi' ? [
+        'Frɛ ayaresabea anaa ambulance so ntɛm ara (193).',
+        'Ma onipa no nyɛ komm na ɔda fam mmerɛw.',
+        'Hwɛ sɛ ɔrehome anaa ɔnnhome.',
+        'Sɛ ɔrehome a, dan no to ne nfe mu.'
+      ] : [
+        'Call emergency services immediately (193).',
+        'Keep the injured person completely still and calm.',
+        'Monitor their breathing and consciousness closely.',
+        'If breathing but unresponsive, place them in the recovery position (on their side).'
+      ],
+      warnings: language === 'twi' ? [
+        'Mnsoso onipa no gye sɛ asiane foforo bɛto no.'
+      ] : [
+        'Do not move the person unless they are in immediate danger.'
+      ],
+      call_immediately: true,
+      is_offline: true,
+    };
+
+    Alert.alert(
+      language === 'twi' ? 'Wunni Internet (Offline)' : 'Offline Mode Active',
+      language === 'twi' 
+        ? 'Wunni internet mprempren. Yɛrekyerɛ wo mmoa nhyehyɛeɛ a yɛakora wɔ app yi mu.' 
+        : 'You are currently offline. Showing preloaded first-aid guidance from local database.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.push({
+              pathname: '/results',
+              params: {
+                data: JSON.stringify(formattedResult),
+                language,
+                originalText: query,
+              },
+            });
+          }
+        }
+      ]
+    );
+
+  } finally {
+
+    setLoading(false);
+
+  }
+};
 
 
     const handleProbeSubmit = async (answers) => {
@@ -373,38 +368,31 @@ export default function HomeScreen() {
       }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top','bottom']}>
-
-    
-
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-
-        {/* Top header — Login & History */}
-        <View style={s.homeHeader}>
-          <View style={s.welcomeBlock}>
-      
-          </View>
-          <View style={s.headerButtons}>
-            <TouchableOpacity style={s.topAction} onPress={() => router.push('/history')}>
-              <Text style={s.topActionText}>{language === 'twi' ? 'History' : 'History'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.topAction} onPress={() => router.push('/login')}>
-              <Text style={s.topActionText}>{language === 'twi' ? 'Login' : 'Login'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Connection banner */}
-        <ConnectivityBanner language={language} />
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={s.keyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+      >
+      <ScrollView
+        ref={scrollRef}
+        style={s.scroll}
+        contentContainerStyle={[s.content, { paddingTop: insets.top + 10, paddingBottom: 90 + keyboardOffset }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        
 
         {/* Hero */}
         <View style={s.hero}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={s.heroIcon}><Text style={s.heroIconText}>🚨</Text></View>
-              <Text style={s.homeTitle}>{language === 'twi' ? 'AIDA' : 'AIDA'}</Text>
-            </View>
+            <View style={s.heroIcon}><Text style={s.heroIconText}>🚨</Text></View>
             <View style={s.headerRight}>
+              <TouchableOpacity style={{ padding: 4, marginRight: 4 }} onPress={() => router.push('/history')} accessibilityLabel="History" accessibilityRole="button">
+                <MaterialCommunityIcons name="history" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ padding: 4, marginRight: 8 }} onPress={() => router.push('/login')} accessibilityLabel="Login" accessibilityRole="button">
+                <MaterialCommunityIcons name="account" size={24} color="#FFF" />
+              </TouchableOpacity>
               <View style={s.flag}>
                 <View style={[s.stripe, { backgroundColor: '#CE1126' }]} />
                 <View style={[s.stripe, { backgroundColor: '#FCD116' }]} />
@@ -476,6 +464,7 @@ export default function HomeScreen() {
             returnKeyType="done"
             blurOnSubmit={true}
             onSubmitEditing={() => {}}
+            onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
           />
           {!!inputText && (
             <TouchableOpacity style={s.clearBtn} onPress={() => setInputText('')}>
@@ -510,33 +499,12 @@ export default function HomeScreen() {
 
         {/* Analyze button */}
         <TouchableOpacity
-          style={[
-            s.analyzeBtn,
-            ((!inputText.trim() && !image) || loading || isConnectivityLoading) && s.analyzeBtnOff
-          ]}
-          onPress={() => {
-            if (isConnectivityLoading) {
-              Alert.alert(
-                language === 'twi' ? 'Yɛrehwɛ internet' : 'Checking Connection',
-                language === 'twi'
-                  ? 'Mesrɛ twɛn ma yɛnhwɛ sɛ wo wɔ internet anaa.'
-                  : 'Please wait while we check your internet status.'
-              );
-              return;
-            }
-            handleDescribe();
-          }}
-          disabled={(!inputText.trim() && !image) || loading || isConnectivityLoading}
+          style={[s.analyzeBtn, (!inputText.trim() && !image) || loading && s.analyzeBtnOff]}
+          onPress={() => handleDescribe()}
+          disabled={(!inputText.trim() && !image) || loading}
           activeOpacity={0.85}
         >
-          {isConnectivityLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <ActivityIndicator size="small" color="#FFF" />
-              <Text style={s.analyzeBtnText}>
-                {language === 'twi' ? 'Yɛrehwɛ internet...' : 'Checking connection...'}
-              </Text>
-            </View>
-          ) : loading ? (
+          {loading ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <ActivityIndicator size="small" color="#FFF" />
               <Text style={s.analyzeBtnText}>
@@ -566,6 +534,7 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -583,6 +552,7 @@ const s = StyleSheet.create({
   headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.9)' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 20, paddingBottom: 48 },
+  keyboardAvoiding: { flex: 1 },
   hero: { backgroundColor: '#D32F2F', borderRadius: 20, padding: 24, shadowColor: '#D32F2F', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },
   heroIcon: { width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   heroIconText: { fontSize: 26 },
@@ -615,13 +585,6 @@ const s = StyleSheet.create({
   disclaimerText: { fontSize: 12, color: '#555', textAlign: 'center', lineHeight: 18 },
   nearbyBtn: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   nearbyBtnText: { fontSize: 16, fontWeight: '600', color: '#1A1A1A' },
-  homeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
-  welcomeBlock: { flex: 1 },
-  homeTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', marginBottom: 4,  },
-  homeSubtitle: { fontSize: 13, color: '#616161', lineHeight: 18 },
-  headerButtons: { flexDirection: 'row', gap: 10 },
-  topAction: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#E0F2F1' },
-  topActionText: { color: '#00796B', fontWeight: '700', fontSize: 13 },
   probeNotice:     { backgroundColor: '#E3F2FD', borderRadius: 12, padding: 12, borderLeftWidth: 3, borderLeftColor: '#1565C0' },
   probeNoticeText: { fontSize: 12, color: '#0D47A1', lineHeight: 18 },
 });
