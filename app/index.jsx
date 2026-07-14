@@ -16,6 +16,7 @@ import { getCurrentLocation } from '../services/location';
 import VoiceInput from '../components/VoiceInput';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { findOfflineFirstAid } from '../constants/firstaid';
+import { getConnectivityState } from '../services/connectivity';
 
 let useSpeechRecognition;
 try {
@@ -419,27 +420,29 @@ export default function HomeScreen() {
             <Text style={s.sectionLabel}>{language === 'twi' ? 'PAW SCENARIO' : 'QUICK SELECT'}</Text>
             <View style={s.sectionLine} />
           </View>
-          <View style={s.grid}>
-            {SCENARIOS.map((sc) => (
-            <TouchableOpacity
-              key={sc.label}
-              style={[
-                s.scenarioBtn,
-                pressedScenario === sc.label && s.scenarioBtnActive,
-              ]}
-              onPress={() => handleScenario(sc)}
-              onPressIn={() => setPressedScenario(sc.label)}
-              onPressOut={() => setPressedScenario(null)}
-              disabled={isAnalyzing}
-              activeOpacity={0.85}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={language === 'twi' ? `${sc.labelTwi} scenario` : `${sc.label} scenario`}
-            >
-              <View style={[s.scenarioIcon, { backgroundColor: `${sc.color}20` }]}><MaterialCommunityIcons name={sc.icon} size={26} color={sc.color}/></View>
-                <Text style={s.scenarioText} numberOfLines={2}>{language === 'twi' ? sc.labelTwi : sc.label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={s.quickSelectContainer}>
+            <View style={s.grid}>
+              {SCENARIOS.map((sc) => (
+                <TouchableOpacity
+                  key={sc.label}
+                  style={[
+                    s.scenarioBtn,
+                    pressedScenario === sc.label && s.scenarioBtnActive,
+                  ]}
+                  onPress={() => handleScenario(sc)}
+                  onPressIn={() => setPressedScenario(sc.label)}
+                  onPressOut={() => setPressedScenario(null)}
+                  disabled={isAnalyzing}
+                  activeOpacity={0.85}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={language === 'twi' ? `${sc.labelTwi} scenario` : `${sc.label} scenario`}
+                >
+                  <View style={[s.scenarioIcon, { backgroundColor: `${sc.color}15` }]}><MaterialCommunityIcons name={sc.icon} size={26} color={sc.color}/></View>
+                  <Text style={s.scenarioText} numberOfLines={2}>{language === 'twi' ? sc.labelTwi : sc.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -561,11 +564,12 @@ const s = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A', letterSpacing: 1 },
   sectionLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  scenarioBtn: { width: '22%', minHeight: 84, backgroundColor: '#FFF', borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6, gap: 6, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3, transform: [{ scale: 1 }], },
-  scenarioBtnActive: { backgroundColor: '#F9FAFB', borderColor: '#D1D5DB' },
-  scenarioIcon: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8, backgroundColor: '#F3F4F6' },
-  scenarioText: { fontSize: 11, color: '#111827', fontWeight: '600', textAlign: 'center', lineHeight: 13 },
+  quickSelectContainer: { backgroundColor: '#FFF', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
+  scenarioBtn: { width: '22%', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 4, gap: 4, borderRadius: 10 },
+  scenarioBtnActive: { backgroundColor: '#F3F4F6' },
+  scenarioIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  scenarioText: { fontSize: 11, color: '#374151', fontWeight: '600', textAlign: 'center', lineHeight: 13 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
   dividerText: { fontSize: 12, color: '#9E9E9E', fontWeight: '500' },

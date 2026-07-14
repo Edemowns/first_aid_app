@@ -1,0 +1,22 @@
+{
+  "short_name": "AIDA",
+  "name": "AIDA First Aid Assistant",
+  "description": "AI-powered and offline-enabled emergency first aid guidance assistant.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#D32F2F",
+  "theme_color": "#D32F2F",
+  "display": "standalone",
+  "orientation": "portrait"
+}
